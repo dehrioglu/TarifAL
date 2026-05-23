@@ -4,21 +4,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { AppButton } from '../../components/AppButton';
+import { BrandLogo } from '../../components/BrandLogo';
+import { FavoriteRecipesSection } from '../../components/FavoriteRecipesSection';
+import { GamificationCard } from '../../components/GamificationCard';
+import { InvestorDemoPanel } from '../../components/InvestorDemoPanel';
 import { RecipeCard } from '../../components/RecipeCard';
 import { Screen } from '../../components/Screen';
+import { UserGoalSelector } from '../../components/UserGoalSelector';
 import { theme } from '../../constants/theme';
 import { useAppStore } from '../../store/useAppStore';
+import { FavoriteListType } from '../../types';
 
 type ProfileTab = 'mine' | 'liked';
 
 export function ProfileScreen() {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<ProfileTab>('liked');
+  const [favoriteTab, setFavoriteTab] = useState<FavoriteListType>('favorites');
+  const [showInvestorDemo, setShowInvestorDemo] = useState(false);
   const user = useAppStore((store) => store.user);
   const recipes = useAppStore((store) => store.recipes);
   const likes = useAppStore((store) => store.likes);
+  const cart = useAppStore((store) => store.cart);
+  const orders = useAppStore((store) => store.orders);
+  const userGoal = useAppStore((store) => store.userGoal);
+  const recipeLists = useAppStore((store) => store.recipeLists);
   const toggleLike = useAppStore((store) => store.toggleLike);
+  const setUserGoal = useAppStore((store) => store.setUserGoal);
   const signOut = useAppStore((store) => store.signOut);
+  const requestGuidedTourReplay = useAppStore((store) => store.requestGuidedTourReplay);
 
   const myRecipes = useMemo(
     () => recipes.filter((recipe) => recipe.createdBy === user?.id),
@@ -29,7 +43,12 @@ export function ProfileScreen() {
     [likes, recipes],
   );
   const totalHearts = myRecipes.reduce((sum, recipe) => sum + recipe.likes, 0);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const visibleRecipes = activeTab === 'mine' ? myRecipes : likedRecipes;
+  const favoriteRecipes = useMemo(
+    () => recipes.filter((recipe) => recipeLists[favoriteTab].includes(recipe.id)),
+    [favoriteTab, recipeLists, recipes],
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -43,13 +62,18 @@ export function ProfileScreen() {
     setActiveTab(tab);
   };
 
+  const handleReplayTour = () => {
+    void requestGuidedTourReplay();
+    navigation.navigate('Home');
+  };
+
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.profileTop}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>T</Text>
+          <BrandLogo variant="mark" size={78} />
         </View>
-        <Text style={styles.name}>{user?.name ?? 'Tarif AI'}</Text>
+        <Text style={styles.name}>{user?.name ?? 'Enes'}</Text>
         <Text style={styles.email}>{user?.email ?? 'tarifai@tarifai.com'}</Text>
       </View>
 
@@ -61,14 +85,57 @@ export function ProfileScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{likedRecipes.length}</Text>
-          <Text style={styles.statLabel}>Beğeni</Text>
+          <Text style={styles.statLabel}>Favori</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{totalHearts}</Text>
-          <Text style={styles.statLabel}>Toplam Kalp</Text>
+          <Text style={styles.statValue}>{cartCount}</Text>
+          <Text style={styles.statLabel}>Sepet</Text>
         </View>
       </View>
+
+      <View style={styles.profileSummary}>
+        <View style={styles.summaryItem}>
+          <Ionicons name="flame-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.summaryText}>Hedef: {userGoal}</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <Ionicons name="bag-check-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.summaryText}>
+            {recipeLists.cookedBefore.length} tamamlanan tarif • {totalHearts} toplam kalp • {orders.length} sipariş
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.goalWrap}>
+        <GamificationCard />
+      </View>
+
+      <View style={styles.goalWrap}>
+        <UserGoalSelector value={userGoal} onChange={setUserGoal} />
+      </View>
+
+      <AppButton
+        title="Tanıtım turunu tekrar göster"
+        icon="sparkles-outline"
+        variant="soft"
+        onPress={handleReplayTour}
+        style={styles.tourButton}
+      />
+
+      <AppButton
+        title={showInvestorDemo ? 'Demo Modunu Gizle' : 'Yatırımcı Demo Modu'}
+        icon="analytics-outline"
+        variant="soft"
+        onPress={() => setShowInvestorDemo((value) => !value)}
+        style={styles.tourButton}
+      />
+
+      {showInvestorDemo ? (
+        <View style={styles.goalWrap}>
+          <InvestorDemoPanel />
+        </View>
+      ) : null}
 
       <AppButton
         title="Çıkış Yap"
@@ -121,6 +188,18 @@ export function ProfileScreen() {
           ))}
         </ScrollView>
       )}
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Tarif Koleksiyonları</Text>
+      </View>
+      <FavoriteRecipesSection
+        active={favoriteTab}
+        onChange={setFavoriteTab}
+        recipes={favoriteRecipes}
+        likedIds={likes}
+        onOpenRecipe={openRecipe}
+        onToggleLike={toggleLike}
+      />
     </Screen>
   );
 }
@@ -141,11 +220,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...theme.orangeShadow,
     shadowOpacity: 0.12,
-  },
-  avatarText: {
-    color: theme.colors.primary,
-    fontSize: 33,
-    fontWeight: '900',
   },
   name: {
     marginTop: 16,
@@ -190,11 +264,34 @@ const styles = StyleSheet.create({
     height: 32,
     backgroundColor: theme.colors.border,
   },
+  profileSummary: {
+    marginTop: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primarySoft,
+    padding: 14,
+    gap: 10,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  summaryText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   logout: {
     alignSelf: 'center',
     minHeight: 42,
     marginTop: 16,
     paddingHorizontal: 18,
+  },
+  tourButton: {
+    marginTop: 14,
+  },
+  goalWrap: {
+    marginTop: 16,
   },
   tabs: {
     marginTop: 22,
@@ -242,5 +339,14 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.muted,
     fontWeight: '700',
+  },
+  sectionHeader: {
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 20,
+    fontWeight: '900',
   },
 });

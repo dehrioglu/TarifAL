@@ -5,6 +5,9 @@ export const recipeCategories: RecipeCategory[] = [
   'Çorba',
   'Ana Yemek',
   'Tatlı',
+  'Salata',
+  'Pratik',
+  'Ekonomik',
 ];
 
 export const categoryFilters: CategoryFilter[] = ['Hepsi', ...recipeCategories];
@@ -15,4 +18,7 @@ export const categoryIcons: Record<CategoryFilter, string> = {
   Çorba: 'water',
   'Ana Yemek': 'flame',
   Tatlı: 'ice-cream',
+  Salata: 'leaf',
+  Pratik: 'flash',
+  Ekonomik: 'wallet',
 };

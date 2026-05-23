@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
+import { BrandLogo } from '../../components/BrandLogo';
 import { InputField } from '../../components/InputField';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
@@ -29,10 +29,8 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.hero}>
-        <View style={styles.logoCircle}>
-          <Ionicons name="search-circle" size={56} color="#5B477A" />
-        </View>
-        <Text style={styles.logoText}>Tarif AI</Text>
+        <BrandLogo size={132} />
+        <Text style={styles.logoText}>TarifAL</Text>
         <Text style={styles.subtitle}>Lezzetli tarifleri keşfet, paylaş ve sipariş ver</Text>
       </View>
 
@@ -67,7 +65,7 @@ export function LoginScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <Text style={styles.demoText}>Demo: test@tarifai.com / Test123!</Text>
+      <Text style={styles.demoText}>Demo: tarifai@tarifai.com / Test123!</Text>
     </Screen>
   );
 }
@@ -83,18 +81,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  logoCircle: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: theme.colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.orangeShadow,
-    shadowOpacity: 0.12,
-  },
   logoText: {
-    marginTop: 16,
+    marginTop: 4,
     color: theme.colors.primary,
     fontSize: 28,
     fontWeight: '900',

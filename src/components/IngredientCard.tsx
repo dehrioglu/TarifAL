@@ -2,11 +2,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
-import { Ingredient } from '../types';
+import { Ingredient, MarketAlternative } from '../types';
 
 type IngredientCardProps = {
   ingredient: Ingredient;
-  onOrder: () => void;
+  onOrder: (alternative?: MarketAlternative) => void;
 };
 
 export function IngredientCard({ ingredient, onOrder }: IngredientCardProps) {
@@ -18,10 +18,27 @@ export function IngredientCard({ ingredient, onOrder }: IngredientCardProps) {
           {ingredient.gram} gr • ₺{ingredient.price.toFixed(2)}
         </Text>
       </View>
-      <TouchableOpacity onPress={onOrder} activeOpacity={0.85} style={styles.button}>
+      <TouchableOpacity onPress={() => onOrder()} activeOpacity={0.85} style={styles.button}>
         <Ionicons name="bag-add" size={14} color="#FFFFFF" />
         <Text style={styles.buttonText}>Sipariş Ver</Text>
       </TouchableOpacity>
+      {ingredient.alternatives?.length ? (
+        <View style={styles.alternatives}>
+          {ingredient.alternatives.map((alternative) => (
+            <TouchableOpacity
+              key={alternative.id}
+              onPress={() => onOrder(alternative)}
+              activeOpacity={0.85}
+              style={styles.alternativeButton}
+            >
+              <Text style={styles.alternativeTitle} numberOfLines={1}>{alternative.name}</Text>
+              <Text style={styles.alternativeMeta}>
+                {alternative.note} • ₺{alternative.price.toFixed(2)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -35,12 +52,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
   copy: {
-    flex: 1,
+    paddingRight: 112,
     gap: 4,
   },
   name: {
@@ -54,6 +69,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   button: {
+    position: 'absolute',
+    top: 16,
+    right: 14,
     minHeight: 42,
     borderRadius: theme.radius.pill,
     paddingHorizontal: 14,
@@ -67,5 +85,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 12,
+  },
+  alternatives: {
+    gap: 8,
+  },
+  alternativeButton: {
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  alternativeTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  alternativeMeta: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

@@ -8,12 +8,13 @@ import {
 import { AppUser } from '../types';
 import { auth } from './firebase';
 
-const DEMO_EMAIL = 'test@tarifai.com';
+const DEMO_EMAIL = 'tarifai@tarifai.com';
+const LEGACY_DEMO_EMAIL = 'test@tarifai.com';
 const DEMO_PASSWORD = 'Test123!';
 
 const localUserFromEmail = (email: string, name?: string): AppUser => ({
-  id: email === DEMO_EMAIL ? 'demo-user' : `local-${email.toLowerCase()}`,
-  name: name || (email === DEMO_EMAIL ? 'Tarif AI' : email.split('@')[0]),
+  id: email === DEMO_EMAIL || email === LEGACY_DEMO_EMAIL ? 'demo-user' : `local-${email.toLowerCase()}`,
+  name: name || (email === DEMO_EMAIL || email === LEGACY_DEMO_EMAIL ? 'Enes' : email.split('@')[0]),
   email,
 });
 
@@ -33,7 +34,7 @@ export const signInWithEmail = async (email: string, password: string): Promise<
     };
   }
 
-  if (email === DEMO_EMAIL && password !== DEMO_PASSWORD) {
+  if ((email === DEMO_EMAIL || email === LEGACY_DEMO_EMAIL) && password !== DEMO_PASSWORD) {
     throw new Error('Demo şifresi: Test123!');
   }
 

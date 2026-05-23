@@ -1,12 +1,58 @@
-export type RecipeCategory = 'Kahvaltı' | 'Çorba' | 'Ana Yemek' | 'Tatlı';
+export type RecipeCategory =
+  | 'Kahvaltı'
+  | 'Çorba'
+  | 'Ana Yemek'
+  | 'Tatlı'
+  | 'Salata'
+  | 'Pratik'
+  | 'Ekonomik';
 
 export type CategoryFilter = 'Hepsi' | RecipeCategory;
+
+export type Difficulty = 'Kolay' | 'Orta' | 'Zor';
+
+export type UserGoal =
+  | 'Kilo vermek'
+  | 'Kas yapmak'
+  | 'Sağlıklı beslenmek'
+  | 'Ekonomik beslenmek'
+  | 'Pratik yemek yapmak'
+  | 'Aile için pratik yemek'
+  | 'Öğrenci modu'
+  | 'Zaman kazanmak';
+
+export type GoalType =
+  | 'kilo_vermek'
+  | 'kas_yapmak'
+  | 'saglikli_beslenmek'
+  | 'ekonomik_beslenmek'
+  | 'pratik_yemek';
+
+export type FavoriteListType = 'favorites' | 'cookLater' | 'cookedBefore';
+
+export type MarketAlternative = {
+  id: string;
+  name: string;
+  gram: number;
+  price: number;
+  note: string;
+};
 
 export type Ingredient = {
   id: string;
   name: string;
   gram: number;
   price: number;
+  alternatives?: MarketAlternative[];
+};
+
+export type MarketProduct = {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  category: string;
+  image?: string;
 };
 
 export type RecipeStep = {
@@ -21,8 +67,17 @@ export type Recipe = {
   category: RecipeCategory;
   imageUrl: string;
   ingredients: Ingredient[];
+  requiredIngredients?: Ingredient[];
+  optionalIngredients?: Ingredient[];
   steps: RecipeStep[];
   likes: number;
+  prepTime: number;
+  servings: number;
+  calories: number;
+  difficulty: Difficulty;
+  tags: string[];
+  goalTypes: GoalType[];
+  estimatedPrice?: number;
   createdBy: string;
   createdByName: string;
   createdAt: string;
@@ -45,6 +100,7 @@ export type CartItem = {
   gram: number;
   price: number;
   quantity: number;
+  selectedAlternative?: MarketAlternative;
 };
 
 export type Order = {
@@ -57,6 +113,24 @@ export type Order = {
   status: 'mock-confirmed';
 };
 
+export type AiSuggestion = {
+  id: string;
+  title: string;
+  reason: string;
+  matchedIngredients: string[];
+  missingIngredients: string[];
+  recipeId?: string;
+};
+
+export type RecipeMatch = {
+  recipe: Recipe;
+  matchedIngredients: Ingredient[];
+  missingIngredients: Ingredient[];
+  matchPercent: number;
+  label: string;
+  qualityLabel: string;
+};
+
 export type NewRecipePayload = {
   title: string;
   description: string;
@@ -64,4 +138,9 @@ export type NewRecipePayload = {
   imageUrl?: string;
   ingredients: Ingredient[];
   steps: RecipeStep[];
+  prepTime: number;
+  servings: number;
+  calories: number;
+  difficulty: Difficulty;
+  tags: string[];
 };

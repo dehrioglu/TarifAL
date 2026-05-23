@@ -6,11 +6,14 @@ Modern mobil tarif ve market sipariş uygulaması. React Native + Expo + TypeScr
 
 - Giriş ve kayıt ekranları
 - Günün tarifi, kategori filtreleri ve tarif kartları
+- Tariflerde süre, porsiyon, zorluk, kalori ve etiket bilgileri
+- Gelişmiş arama: kategori, malzeme, süre, bütçe ve zorluk filtreleri
+- AI malzeme önerisi: evdeki malzemelerle eşleşen tarif önerileri
 - Beğeni sistemi
-- Tarif detayında malzemeler, hazırlanış adımları ve sepete ekleme
+- Tarif detayında malzemeler, hazırlanış adımları, market muadili ve sepete ekleme
 - Tarif ekleme formu, galeri görseli, AI görsel/video placeholder butonları
-- Sepet, adet artır/azalt, silme, teslimat adresi ve mock sipariş onayı
-- Profil, kullanıcı bilgisi, tariflerim, beğendiklerim ve çıkış
+- Sepet, adet artır/azalt, silme, teslimat adresi, mock sipariş onayı ve sipariş geçmişi
+- Profil, kullanıcı bilgisi, tariflerim, beğendiklerim, sipariş özeti ve çıkış
 - Firebase koleksiyon hazırlığı: `users`, `recipes`, `ingredients`, `orders`, `likes`, `cart`
 
 ## Kurulum
@@ -53,6 +56,57 @@ Windows PowerShell için:
 
 ```powershell
 Copy-Item .env.example .env
+```
+
+Firebase config girildiğinde uygulama Firestore'dan tarifleri, kullanıcının beğenilerini ve sipariş geçmişini çekmeye çalışır. Veri yoksa demo içerik korunur.
+
+## Vercel'e Yükleme
+
+Bu proje Expo web çıktısı için hazırlandı. Vercel ayarı [vercel.json](./vercel.json) içinde:
+
+- Build command: `expo export -p web`
+- Output directory: `dist`
+- SPA rewrite: tüm yollar `/` adresine yönlenir
+
+Yerelde üretim çıktısını almak için:
+
+```bash
+npm run export:web
+```
+
+Üretim çıktısını yerelde test etmek için:
+
+```bash
+npm run serve:web
+```
+
+Vercel CLI ile yüklemek için:
+
+```bash
+npm install -g vercel@latest
+vercel login
+vercel
+```
+
+Vercel panelinden yükleyeceksen:
+
+1. Projeyi GitHub'a gönder.
+2. Vercel'de New Project seç.
+3. Framework Preset: Other
+4. Build Command: `expo export -p web`
+5. Output Directory: `dist`
+6. Environment Variables bölümüne Firebase `EXPO_PUBLIC_...` değerlerini ekle.
+
+## APK Build
+
+```bash
+eas build -p android --profile preview
+```
+
+Play Store için:
+
+```bash
+eas build -p android --profile production
 ```
 
 ## Proje Yapısı

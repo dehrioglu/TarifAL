@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -12,7 +12,9 @@ import { recipeCategories } from '../../constants/categories';
 import { theme } from '../../constants/theme';
 import { uploadRecipeImage } from '../../services/storageService';
 import { useAppStore } from '../../store/useAppStore';
-import { Ingredient, RecipeCategory, RecipeStep } from '../../types';
+import { Difficulty, Ingredient, RecipeCategory, RecipeStep } from '../../types';
+
+const difficultyOptions: Difficulty[] = ['Kolay', 'Orta', 'Zor'];
 
 const emptyIngredient = (): Ingredient => ({
   id: `ingredient-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -35,6 +37,11 @@ export function AddRecipeScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<RecipeCategory>('Kahvaltı');
+  const [prepTime, setPrepTime] = useState('25');
+  const [servings, setServings] = useState('2');
+  const [calories, setCalories] = useState('320');
+  const [difficulty, setDifficulty] = useState<Difficulty>('Kolay');
+  const [tags, setTags] = useState('hızlı, ekonomik');
   const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
   const [steps, setSteps] = useState<RecipeStep[]>([emptyStep()]);
   const [submitting, setSubmitting] = useState(false);
@@ -43,9 +50,11 @@ export function AddRecipeScreen() {
     () =>
       title.trim().length > 2 &&
       description.trim().length > 4 &&
+      Number(prepTime) > 0 &&
+      Number(servings) > 0 &&
       ingredients.some((item) => item.name.trim() && item.gram > 0 && item.price > 0) &&
       steps.some((item) => item.text.trim()),
-    [description, ingredients, steps, title],
+    [description, ingredients, prepTime, servings, steps, title],
   );
 
   const pickImage = async () => {
@@ -96,13 +105,18 @@ export function AddRecipeScreen() {
     setTitle('');
     setDescription('');
     setCategory('Kahvaltı');
+    setPrepTime('25');
+    setServings('2');
+    setCalories('320');
+    setDifficulty('Kolay');
+    setTags('hızlı, ekonomik');
     setIngredients([emptyIngredient()]);
     setSteps([emptyStep()]);
   };
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      Alert.alert('Eksik bilgi', 'Başlık, açıklama, en az bir malzeme ve bir adım ekle.');
+      Alert.alert('Eksik bilgi', 'Başlık, açıklama, süre, porsiyon, en az bir malzeme ve bir adım ekle.');
       return;
     }
 
@@ -115,6 +129,14 @@ export function AddRecipeScreen() {
         description: description.trim(),
         category,
         imageUrl: uploadedImage,
+        prepTime: Number(prepTime) || 25,
+        servings: Number(servings) || 2,
+        calories: Number(calories) || 0,
+        difficulty,
+        tags: tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         ingredients: ingredients
           .filter((item) => item.name.trim() && item.gram > 0 && item.price > 0)
           .map((item) => ({ ...item, name: item.name.trim() })),
@@ -210,6 +232,36 @@ export function AddRecipeScreen() {
             />
           ))}
         </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Tarif Bilgileri</Text>
+        <View style={styles.infoRow}>
+          <InputField value={prepTime} onChangeText={setPrepTime} placeholder="dk" keyboardType="numeric" containerStyle={styles.infoInput} />
+          <InputField value={servings} onChangeText={setServings} placeholder="porsiyon" keyboardType="numeric" containerStyle={styles.infoInput} />
+          <InputField value={calories} onChangeText={setCalories} placeholder="kalori" keyboardType="numeric" containerStyle={styles.infoInput} />
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Zorluk</Text>
+        <View style={styles.categoryRow}>
+          {difficultyOptions.map((item) => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setDifficulty(item)}
+              activeOpacity={0.86}
+              style={[styles.difficultyChip, difficulty === item && styles.difficultyChipActive]}
+            >
+              <Text style={[styles.difficultyText, difficulty === item && styles.difficultyTextActive]}>{item}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Etiketler</Text>
+        <InputField value={tags} onChangeText={setTags} placeholder="hızlı, fit, ekonomik" />
       </View>
 
       <View style={styles.sectionLine}>
@@ -369,6 +421,35 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     minWidth: 86,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  infoInput: {
+    flex: 1,
+  },
+  difficultyChip: {
+    minHeight: 42,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  difficultyChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  difficultyText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  difficultyTextActive: {
+    color: '#FFFFFF',
   },
   sectionLine: {
     marginTop: 30,

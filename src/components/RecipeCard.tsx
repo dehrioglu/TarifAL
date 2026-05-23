@@ -45,7 +45,7 @@ export function RecipeCard({
             </View>
             <Text style={styles.featuredTitle} numberOfLines={2}>{recipe.title}</Text>
             <Text style={styles.featuredMeta} numberOfLines={1}>
-              ❤ {recipe.likes} beğeni  •  {recipe.category}
+              ❤ {recipe.likes} beğeni  •  {recipe.prepTime} dk  •  {recipe.category}
             </Text>
           </View>
         </ImageBackground>
@@ -90,7 +90,7 @@ export function RecipeCard({
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle} numberOfLines={1}>{recipe.title}</Text>
         <Text style={styles.cardMeta} numberOfLines={1}>
-          ❤ {recipe.likes} {isMini ? '' : ` • ${recipe.category}`}
+          ❤ {recipe.likes} {isMini ? '' : ` • ${recipe.prepTime} dk • ${recipe.difficulty}`}
         </Text>
       </View>
     </Pressable>
