@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { InputField } from '../../components/InputField';
 import { Screen } from '../../components/Screen';
 import { recipeCategories } from '../../constants/categories';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { uploadRecipeImage } from '../../services/storageService';
 import { useAppStore } from '../../store/useAppStore';
 import { Difficulty, Ingredient, RecipeCategory, RecipeStep } from '../../types';
@@ -45,6 +46,7 @@ export function AddRecipeScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
   const [steps, setSteps] = useState<RecipeStep[]>([emptyStep()]);
   const [submitting, setSubmitting] = useState(false);
+  const { showToast, showDemoModal, showComingSoon } = useFeedback();
 
   const canSubmit = useMemo(
     () =>
@@ -61,7 +63,7 @@ export function AddRecipeScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('İzin gerekli', 'Galeriye erişim izni olmadan görsel seçilemez.');
+      showToast('Galeriye erişim izni olmadan görsel seçilemez.', 'warning');
       return;
     }
 
@@ -116,7 +118,7 @@ export function AddRecipeScreen() {
 
   const handleSubmit = async () => {
     if (!canSubmit) {
-      Alert.alert('Eksik bilgi', 'Başlık, açıklama, süre, porsiyon, en az bir malzeme ve bir adım ekle.');
+      showToast('Başlık, açıklama, en az bir malzeme ve bir hazırlık adımı eklemelisin.', 'warning');
       return;
     }
 
@@ -146,19 +148,24 @@ export function AddRecipeScreen() {
       });
 
       resetForm();
-      Alert.alert('Tarif paylaşıldı', `${recipe.title} topluluğa eklendi.`);
-      navigation.navigate('Home');
+      showDemoModal({
+        title: 'Tarif paylaşıldı',
+        message: `${recipe.title} topluluğa eklendi. Demo modunda tarif listesine yerel olarak eklendi.`,
+        primaryLabel: 'Ana Sayfaya Dön',
+        onPrimary: () => navigation.navigate('Home'),
+      });
     } catch (error) {
-      Alert.alert('Paylaşım tamamlanamadı', error instanceof Error ? error.message : 'Tekrar deneyin.');
+      showToast(error instanceof Error ? error.message : 'Paylaşım tamamlanamadı, tekrar deneyin.', 'warning');
     } finally {
       setSubmitting(false);
     }
   };
 
   const showPlaceholder = (type: 'image' | 'video') => {
-    Alert.alert(
-      type === 'image' ? 'AI Görsel' : 'AI Video',
-      'Bu buton hazır bir placeholder. Gerçek üretim servisi bağlandığında burada çıktı oluşturulacak.',
+    showComingSoon(
+      type === 'image'
+        ? 'AI görsel üretimi MVP sonrası gerçek üretim servisiyle aktif edilecek. Bu demo akışında yer tutucu olarak gösteriliyor.'
+        : 'AI video üretimi MVP sonrası gerçek üretim servisiyle aktif edilecek. Bu demo akışında yer tutucu olarak gösteriliyor.',
     );
   };
 

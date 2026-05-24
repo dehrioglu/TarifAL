@@ -45,7 +45,13 @@ export function CookingMode({ recipe, visible, onClose, onFinish }: CookingModeP
             <Text style={styles.eyebrow}>Pişirme Modu</Text>
             <Text style={styles.title}>{recipe.title}</Text>
           </View>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.close}>
+          <TouchableOpacity
+            onPress={onClose}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Pişirme modunu kapat"
+            style={styles.close}
+          >
             <Ionicons name="close" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
@@ -68,10 +74,20 @@ export function CookingMode({ recipe, visible, onClose, onFinish }: CookingModeP
             <Text style={styles.timerValue}>{minutes}:00</Text>
           </View>
           <View style={styles.timerActions}>
-            <TouchableOpacity onPress={() => setMinutes((value) => Math.max(1, value - 1))} style={styles.timerButton}>
+            <TouchableOpacity
+              onPress={() => setMinutes((value) => Math.max(1, value - 1))}
+              accessibilityRole="button"
+              accessibilityLabel="Zamanlayıcıyı azalt"
+              style={styles.timerButton}
+            >
               <Ionicons name="remove" size={18} color={theme.colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setMinutes((value) => value + 1)} style={styles.timerButton}>
+            <TouchableOpacity
+              onPress={() => setMinutes((value) => value + 1)}
+              accessibilityRole="button"
+              accessibilityLabel="Zamanlayıcıyı artır"
+              style={styles.timerButton}
+            >
               <Ionicons name="add" size={18} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>

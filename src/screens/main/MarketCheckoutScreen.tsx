@@ -1,5 +1,5 @@
 import { ComponentProps, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -63,7 +63,7 @@ export function MarketCheckoutScreen({ navigation }: Props) {
     }
 
     if (!address.trim()) {
-      Alert.alert('Adres gerekli', 'Demo siparişi oluşturmak için teslimat adresi gir.');
+      showToast('Demo siparişi oluşturmak için teslimat adresi gir.', 'warning');
       return;
     }
 
@@ -86,7 +86,11 @@ export function MarketCheckoutScreen({ navigation }: Props) {
       setConfirmedOrder(order);
       showToast('Demo sipariş onaylandı. Sipariş takip ekranı hazır.', 'info');
     } catch (error) {
-      Alert.alert('Sipariş tamamlanamadı', error instanceof Error ? error.message : 'Tekrar deneyin.');
+      showDemoModal({
+        title: 'Sipariş tamamlanamadı',
+        message: error instanceof Error ? error.message : 'Tekrar deneyin.',
+        primaryLabel: 'Tamam',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -96,7 +100,13 @@ export function MarketCheckoutScreen({ navigation }: Props) {
     return (
       <Screen contentStyle={styles.emptyContent}>
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.86} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.86}
+            accessibilityRole="button"
+            accessibilityLabel="Geri dön"
+            style={styles.backButton}
+          >
             <Ionicons name="chevron-back" size={23} color={theme.colors.text} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Akıllı Sipariş</Text>
@@ -199,7 +209,7 @@ export function MarketCheckoutScreen({ navigation }: Props) {
             <AppButton
               title="Tarifi Pişirmeye Geç"
               icon="restaurant"
-              onPress={() => navigation.navigate('RecipeDetail', { recipeId: firstRecipeId })}
+              onPress={() => navigation.navigate('RecipeDetail', { recipeId: firstRecipeId, openCooking: true })}
             />
           ) : null}
           <AppButton
@@ -216,7 +226,13 @@ export function MarketCheckoutScreen({ navigation }: Props) {
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.86} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Geri dön"
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={23} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Akıllı Sipariş</Text>

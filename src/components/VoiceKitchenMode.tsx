@@ -27,7 +27,13 @@ export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeP
             <Text style={styles.eyebrow}>Sesli Mutfak Modu</Text>
             <Text style={styles.title}>{recipe.title}</Text>
           </View>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.85} style={styles.close}>
+          <TouchableOpacity
+            onPress={onClose}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Sesli mutfak modunu kapat"
+            style={styles.close}
+          >
             <Ionicons name="close" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
@@ -53,7 +59,13 @@ export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeP
 
         {demoFeedback ? <Text style={styles.feedback}>{demoFeedback}</Text> : null}
 
-        <TouchableOpacity onPress={listenDemoCommand} activeOpacity={0.86} style={styles.primaryButton}>
+        <TouchableOpacity
+          onPress={listenDemoCommand}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Demo sesli komutu dinle"
+          style={styles.primaryButton}
+        >
           <Ionicons name="mic" size={18} color="#FFFFFF" />
           <Text style={styles.primaryText}>Demo Komutu Dinle</Text>
         </TouchableOpacity>

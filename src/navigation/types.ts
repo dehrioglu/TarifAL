@@ -23,4 +23,5 @@ export type RootStackParamList = {
   FamilyAccount: undefined;
   MarketCheckout: undefined;
   AiChefChat: undefined;
+  InvestorDemo: undefined;
 };

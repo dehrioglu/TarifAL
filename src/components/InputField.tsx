@@ -39,7 +39,12 @@ export function InputField({
         style={[styles.input, style]}
       />
       {secureTextEntry ? (
-        <TouchableOpacity onPress={() => setHidden((value) => !value)} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={() => setHidden((value) => !value)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={hidden ? 'Şifreyi göster' : 'Şifreyi gizle'}
+        >
           <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={20} color={theme.colors.subtle} />
         </TouchableOpacity>
       ) : null}

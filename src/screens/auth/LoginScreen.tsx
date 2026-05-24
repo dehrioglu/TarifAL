@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/AppButton';
@@ -7,6 +7,7 @@ import { BrandLogo } from '../../components/BrandLogo';
 import { InputField } from '../../components/InputField';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useAppStore } from '../../store/useAppStore';
 import { AuthStackParamList } from '../../navigation/types';
 
@@ -17,12 +18,13 @@ export function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('Test123!');
   const signIn = useAppStore((store) => store.signIn);
   const loading = useAppStore((store) => store.authLoading);
+  const { showToast } = useFeedback();
 
   const handleSubmit = async () => {
     try {
       await signIn(email, password);
     } catch (error) {
-      Alert.alert('Giriş yapılamadı', error instanceof Error ? error.message : 'Tekrar deneyin.');
+      showToast(error instanceof Error ? error.message : 'Giriş yapılamadı, tekrar deneyin.', 'warning');
     }
   };
 

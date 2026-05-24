@@ -1,5 +1,5 @@
 import { ComponentProps, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -7,6 +7,7 @@ import { InvestorConversionStrip } from '../../components/InvestorConversionStri
 import { Screen } from '../../components/Screen';
 import { familyQuickProducts } from '../../data/demoFamily';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -20,6 +21,7 @@ export function FamilyAccountScreen({ navigation }: Props) {
   const removeFamilyShoppingItem = useAppStore((store) => store.removeFamilyShoppingItem);
   const addFamilyListToCart = useAppStore((store) => store.addFamilyListToCart);
   const [productName, setProductName] = useState('');
+  const { showToast, showDemoModal } = useFeedback();
 
   const checkedItems = familyAccount.shoppingItems.filter((item) => item.checked);
   const checkedTotal = checkedItems.reduce((sum, item) => sum + item.estimatedPrice, 0);
@@ -39,12 +41,14 @@ export function FamilyAccountScreen({ navigation }: Props) {
       addedBy: 'Sen',
       note: 'Hızlı ekleme',
     });
+    showToast(`${product.name} ev listesine eklendi.`);
   };
 
   const addManualProduct = () => {
     const value = productName.trim();
 
     if (!value) {
+      showToast('Listeye eklemek için ürün adı yaz.', 'warning');
       return;
     }
 
@@ -58,25 +62,35 @@ export function FamilyAccountScreen({ navigation }: Props) {
       note: 'Manuel eklendi',
     });
     setProductName('');
+    showToast(`${value} ev listesine eklendi.`);
   };
 
   const handleAddToCart = () => {
     if (checkedItems.length === 0) {
-      Alert.alert('Ürün seç', 'Sepete aktarmak için ortak listeden en az bir ürün seç.');
+      showToast('Sepete aktarmak için ortak listeden en az bir ürün seç.', 'warning');
       return;
     }
 
     addFamilyListToCart();
-    Alert.alert('Sepet güncellendi', `${checkedItems.length} ortak liste ürünü market sepetine aktarıldı.`, [
-      { text: 'Listede Kal', style: 'cancel' },
-      { text: 'Sepete Git', onPress: () => navigation.navigate('MainTabs', { screen: 'Cart' }) },
-    ]);
+    showDemoModal({
+      title: 'Sepet güncellendi',
+      message: `${checkedItems.length} ortak liste ürünü market sepetine aktarıldı. Ev hesabı ürünleri de Akıllı Sipariş akışında demo market sepetine dönüşebilir.`,
+      primaryLabel: 'Sepete Git',
+      secondaryLabel: 'Listede Kal',
+      onPrimary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+    });
   };
 
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.86} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Geri dön"
+          style={styles.backButton}
+        >
           <Ionicons name="chevron-back" size={23} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Ev Hesabı</Text>
@@ -174,7 +188,13 @@ export function FamilyAccountScreen({ navigation }: Props) {
         <View style={styles.items}>
           {familyAccount.shoppingItems.map((item) => (
             <View key={item.id} style={styles.itemRow}>
-              <TouchableOpacity onPress={() => toggleFamilyShoppingItem(item.id)} activeOpacity={0.85}>
+              <TouchableOpacity
+                onPress={() => toggleFamilyShoppingItem(item.id)}
+                activeOpacity={0.85}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: item.checked }}
+                accessibilityLabel={`${item.name} seçimi`}
+              >
                 <Ionicons
                   name={item.checked ? 'checkbox' : 'square-outline'}
                   size={23}
@@ -188,7 +208,16 @@ export function FamilyAccountScreen({ navigation }: Props) {
                 </Text>
               </View>
               <Text style={styles.itemPrice}>₺{item.estimatedPrice}</Text>
-              <TouchableOpacity onPress={() => removeFamilyShoppingItem(item.id)} activeOpacity={0.85} style={styles.removeButton}>
+              <TouchableOpacity
+                onPress={() => {
+                  removeFamilyShoppingItem(item.id);
+                  showToast(`${item.name} ev listesinden silindi.`, 'info');
+                }}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name} ürününü sil`}
+                style={styles.removeButton}
+              >
                 <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
               </TouchableOpacity>
             </View>

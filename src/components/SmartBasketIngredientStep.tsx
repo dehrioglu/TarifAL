@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { smartBasketQuickIngredients } from '../data/demoSmartBasket';
 import { theme } from '../constants/theme';
+import { useFeedback } from '../feedback/FeedbackProvider';
 import { normalizeIngredientText } from '../utils/recipeMatching';
 
 type SmartBasketIngredientStepProps = {
@@ -18,6 +19,7 @@ export function SmartBasketIngredientStep({
   onNext,
 }: SmartBasketIngredientStepProps) {
   const [value, setValue] = useState('');
+  const { showToast } = useFeedback();
 
   const update = (items: string[]) => {
     onChange([...new Set(items.map((item) => item.trim()).filter(Boolean))]);
@@ -43,6 +45,7 @@ export function SmartBasketIngredientStep({
 
   const handleAddText = () => {
     if (!value.trim()) {
+      showToast('Eklemek için malzeme adı yaz.', 'warning');
       return;
     }
 
@@ -90,7 +93,13 @@ export function SmartBasketIngredientStep({
           placeholderTextColor={theme.colors.subtle}
           style={styles.input}
         />
-        <TouchableOpacity onPress={handleAddText} activeOpacity={0.86} style={styles.addButton}>
+        <TouchableOpacity
+          onPress={handleAddText}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Malzeme ekle"
+          style={styles.addButton}
+        >
           <Ionicons name="add" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -117,6 +126,8 @@ export function SmartBasketIngredientStep({
         onPress={onNext}
         activeOpacity={0.88}
         disabled={selectedIngredients.length === 0}
+        accessibilityRole="button"
+        accessibilityLabel="Bu malzemelerle devam et"
         style={[styles.primaryButton, selectedIngredients.length === 0 && styles.disabledButton]}
       >
         <Ionicons name="sparkles" size={17} color="#FFFFFF" />

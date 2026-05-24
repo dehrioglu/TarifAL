@@ -44,14 +44,32 @@ export function CartItemCard({ item, onIncrement, onDecrement, onRemove }: CartI
         </Text>
       </View>
       <View style={styles.qtyRow}>
-        <TouchableOpacity onPress={onDecrement} style={styles.qtyButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={onDecrement}
+          style={styles.qtyButton}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} adet azalt`}
+        >
           <Ionicons name="remove" size={18} color={theme.colors.primary} />
         </TouchableOpacity>
         <Text style={styles.qtyText}>{item.quantity}</Text>
-        <TouchableOpacity onPress={onIncrement} style={styles.qtyButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={onIncrement}
+          style={styles.qtyButton}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} adet artır`}
+        >
           <Ionicons name="add" size={18} color={theme.colors.primary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onRemove} style={styles.deleteButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={onRemove}
+          style={styles.deleteButton}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} sepetten sil`}
+        >
           <Ionicons name="trash-outline" size={19} color={theme.colors.danger} />
         </TouchableOpacity>
       </View>

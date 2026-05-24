@@ -3,6 +3,7 @@ import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
+import { useFeedback } from '../feedback/FeedbackProvider';
 
 type IngredientInputProps = {
   onAdd: (ingredient: string) => void;
@@ -10,11 +11,13 @@ type IngredientInputProps = {
 
 export function IngredientInput({ onAdd }: IngredientInputProps) {
   const [value, setValue] = useState('');
+  const { showToast } = useFeedback();
 
   const submit = () => {
     const next = value.trim();
 
     if (!next) {
+      showToast('Eklemek için bir malzeme adı yaz.', 'warning');
       return;
     }
 
@@ -34,7 +37,13 @@ export function IngredientInput({ onAdd }: IngredientInputProps) {
         returnKeyType="done"
         style={styles.input}
       />
-      <TouchableOpacity onPress={submit} activeOpacity={0.85} style={styles.button}>
+      <TouchableOpacity
+        onPress={submit}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Malzeme ekle"
+        style={styles.button}
+      >
         <Ionicons name="add" size={21} color="#FFFFFF" />
       </TouchableOpacity>
     </View>

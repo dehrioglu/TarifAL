@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -13,6 +13,7 @@ import { FavoriteRecipesSection } from '../../components/FavoriteRecipesSection'
 import { HomeShareCard } from '../../components/HomeShareCard';
 import { IngredientMatcher } from '../../components/IngredientMatcher';
 import { InputField } from '../../components/InputField';
+import { InvestorDemoStartCard } from '../../components/InvestorDemoStartCard';
 import { PremiumHeroCard } from '../../components/PremiumHeroCard';
 import { RecipeCard } from '../../components/RecipeCard';
 import { Screen } from '../../components/Screen';
@@ -52,7 +53,7 @@ export function HomeScreen() {
   const [weeklyExpanded, setWeeklyExpanded] = useState(false);
   const [marketChecks, setMarketChecks] = useState<Record<string, boolean>>({});
   const [analysisVisible, setAnalysisVisible] = useState(false);
-  const { showToast } = useFeedback();
+  const { showToast, showDemoModal } = useFeedback();
   const { currentStep, isTourActive, registerTarget } = useOnboardingTour();
 
   const user = useAppStore((store) => store.user);
@@ -190,6 +191,10 @@ export function HomeScreen() {
     navigation.getParent()?.navigate('AiChefChat');
   };
 
+  const openInvestorDemo = () => {
+    navigation.getParent()?.navigate('InvestorDemo');
+  };
+
   const handleAssistantAction = (action: string) => {
     const pantryByAction: Record<string, string> = {
       'Daha sağlıklı yap': 'nohut, yeşillik, limon, mercimek',
@@ -213,13 +218,25 @@ export function HomeScreen() {
 
     dailyRecipes.forEach((recipe) => recipe && addMissingIngredientsToCart(recipe.id));
     showToast('Bugünün yemek planı sepete aktarıldı.');
-    Alert.alert('Liste hazır', 'Günlük menünün eksik malzemeleri sepete eklendi.');
+    showDemoModal({
+      title: 'Liste hazır',
+      message: 'Günlük menünün eksik malzemeleri sepete eklendi. İstersen Akıllı Sipariş akışına geçebilirsin.',
+      primaryLabel: 'Sepete Git',
+      secondaryLabel: 'Tamam',
+      onPrimary: () => navigation.navigate('Cart'),
+    });
   };
 
   const handleWeeklyList = () => {
     recipes.slice(0, 7).forEach((recipe) => addMissingIngredientsToCart(recipe.id));
     showToast('Haftalık demo planın alışveriş listesi hazır.');
-    Alert.alert('Haftalık liste hazır', 'Haftalık planın eksik malzemeleri sepete eklendi.');
+    showDemoModal({
+      title: 'Haftalık liste hazır',
+      message: 'Haftalık planın eksik malzemeleri sepete eklendi. Bu demo akışı market sepetine dönüşümü gösterir.',
+      primaryLabel: 'Sepete Git',
+      secondaryLabel: 'Tamam',
+      onPrimary: () => navigation.navigate('Cart'),
+    });
   };
 
   const handleWasteMode = () => {
@@ -237,13 +254,20 @@ export function HomeScreen() {
     const selectedItems = marketItems.filter((item) => marketChecks[item.key] ?? true);
 
     if (selectedItems.length === 0) {
-      Alert.alert('Liste boş', 'Sepete eklemek için en az bir malzeme seç.');
+      showToast('Sepete eklemek için en az bir malzeme seç.', 'warning');
       return;
     }
 
     selectedItems.forEach((item) => addIngredientToCart(item.recipe, item.ingredient));
     showToast(`${selectedItems.length} eksik malzeme sepete eklendi.`);
-    Alert.alert('Sepet güncellendi', `${selectedItems.length} eksik malzeme sepete eklendi.`);
+    showDemoModal({
+      title: 'Sepet güncellendi',
+      message: `${selectedItems.length} eksik malzeme sepete eklendi. Bu listeyi Akıllı Sipariş ekranında demo market sepetine dönüştürebilirsin.`,
+      primaryLabel: 'Akıllı Siparişe Geç',
+      secondaryLabel: 'Sepete Git',
+      onPrimary: () => navigation.getParent()?.navigate('MarketCheckout'),
+      onSecondary: () => navigation.navigate('Cart'),
+    });
   };
 
   const handleClearMarketList = () => {
@@ -324,6 +348,8 @@ export function HomeScreen() {
         <IngredientMatcher
           onOpenRecipe={openRecipe}
           onOpenVision={openPantryVision}
+          onOpenCart={() => navigation.navigate('Cart')}
+          onOpenCheckout={() => navigation.getParent()?.navigate('MarketCheckout')}
           maxMatches={2}
           targetRef={pantryTargetRef}
           matchesTargetRef={recipeCardsTargetRef}
@@ -438,6 +464,7 @@ export function HomeScreen() {
           onOpenToday={() => setActiveSection('today')}
           onOpenPantry={() => setActiveSection('pantry')}
         />
+        <InvestorDemoStartCard onPress={openInvestorDemo} />
       </View>
 
       <View ref={searchTargetRef}>
@@ -524,7 +551,14 @@ export function HomeScreen() {
         }}
         onAddMissing={(recipeId) => {
           addMissingIngredientsToCart(recipeId);
-          Alert.alert('Sepet güncellendi', 'Eksik ürünler alışveriş listene eklendi.');
+          showDemoModal({
+            title: 'Sepet güncellendi',
+            message: 'Eksik ürünler alışveriş listene eklendi. İstersen şimdi Akıllı Sipariş demosuna geçebilirsin.',
+            primaryLabel: 'Akıllı Siparişe Geç',
+            secondaryLabel: 'Sepete Git',
+            onPrimary: () => navigation.getParent()?.navigate('MarketCheckout'),
+            onSecondary: () => navigation.navigate('Cart'),
+          });
         }}
       />
     </Screen>

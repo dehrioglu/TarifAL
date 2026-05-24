@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
+import { useFeedback } from '../feedback/FeedbackProvider';
 import { useAppStore } from '../store/useAppStore';
 import { getRecipeMatches, normalizeIngredientText, parsePantryText, sortRecipesByGoal } from '../utils/recipeMatching';
 import { EmptyState } from './EmptyState';
@@ -15,6 +16,8 @@ const quickIngredients = ['Yumurta', 'Tavuk', 'Makarna', 'Pirinç', 'Domates', '
 type IngredientMatcherProps = {
   onOpenRecipe: (recipeId: string) => void;
   onOpenVision?: () => void;
+  onOpenCart?: () => void;
+  onOpenCheckout?: () => void;
   maxMatches?: number;
   targetRef?: (node: View | null) => void;
   matchesTargetRef?: (node: View | null) => void;
@@ -23,6 +26,8 @@ type IngredientMatcherProps = {
 export function IngredientMatcher({
   onOpenRecipe,
   onOpenVision,
+  onOpenCart,
+  onOpenCheckout,
   maxMatches = 3,
   targetRef,
   matchesTargetRef,
@@ -35,6 +40,7 @@ export function IngredientMatcher({
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
   const toggleRecipeList = useAppStore((store) => store.toggleRecipeList);
   const favorites = useAppStore((store) => store.recipeLists.favorites);
+  const { showDemoModal } = useFeedback();
 
   const pantryItems = useMemo(() => parsePantryText(pantryText), [pantryText]);
   const matches = useMemo(() => {
@@ -71,8 +77,17 @@ export function IngredientMatcher({
   };
 
   const addMissing = (recipeId: string) => {
+    const recipe = recipes.find((item) => item.id === recipeId);
+
     addMissingIngredientsToCart(recipeId);
-    Alert.alert('Sepet güncellendi', 'Eksik malzemeler sepete eklendi.');
+    showDemoModal({
+      title: 'Eksikler sepete eklendi',
+      message: `${recipe?.title ?? 'Seçili tarif'} için eksik malzemeler akıllı sepete aktarıldı.`,
+      primaryLabel: onOpenCheckout ? 'Akıllı Siparişe Geç' : 'Tamam',
+      secondaryLabel: onOpenCart ? 'Sepete Git' : undefined,
+      onPrimary: onOpenCheckout,
+      onSecondary: onOpenCart,
+    });
   };
 
   return (

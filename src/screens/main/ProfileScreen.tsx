@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -12,8 +12,9 @@ import { RecipeCard } from '../../components/RecipeCard';
 import { Screen } from '../../components/Screen';
 import { UserGoalSelector } from '../../components/UserGoalSelector';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useAppStore } from '../../store/useAppStore';
-import { FavoriteListType } from '../../types';
+import { FavoriteListType, UserGoal } from '../../types';
 
 type ProfileTab = 'mine' | 'liked';
 
@@ -33,6 +34,7 @@ export function ProfileScreen() {
   const setUserGoal = useAppStore((store) => store.setUserGoal);
   const signOut = useAppStore((store) => store.signOut);
   const requestGuidedTourReplay = useAppStore((store) => store.requestGuidedTourReplay);
+  const { showToast, showDemoModal } = useFeedback();
 
   const myRecipes = useMemo(
     () => recipes.filter((recipe) => recipe.createdBy === user?.id),
@@ -64,11 +66,29 @@ export function ProfileScreen() {
 
   const handleReplayTour = () => {
     void requestGuidedTourReplay();
+    showToast('Tanıtım turu yeniden başlatılacak.', 'info');
     navigation.navigate('Home');
   };
 
   const openFamilyAccount = () => {
     navigation.getParent()?.navigate('FamilyAccount');
+  };
+
+  const handleUserGoalChange = (goal: UserGoal) => {
+    setUserGoal(goal);
+    showToast(`Hedef güncellendi: ${goal}`, 'info');
+  };
+
+  const confirmSignOut = () => {
+    showDemoModal({
+      title: 'Çıkış yap',
+      message: 'Hesabından çıkmak istiyor musun?',
+      primaryLabel: 'Çıkış Yap',
+      secondaryLabel: 'Vazgeç',
+      onPrimary: () => {
+        void handleSignOut();
+      },
+    });
   };
 
   return (
@@ -116,7 +136,7 @@ export function ProfileScreen() {
       </View>
 
       <View style={styles.goalWrap}>
-        <UserGoalSelector value={userGoal} onChange={setUserGoal} />
+        <UserGoalSelector value={userGoal} onChange={handleUserGoalChange} />
       </View>
 
       <AppButton
@@ -139,7 +159,10 @@ export function ProfileScreen() {
         title={showInvestorDemo ? 'Demo Modunu Gizle' : 'Yatırımcı Demo Modu'}
         icon="analytics-outline"
         variant="soft"
-        onPress={() => setShowInvestorDemo((value) => !value)}
+        onPress={() => {
+          setShowInvestorDemo((value) => !value);
+          showToast(showInvestorDemo ? 'Yatırımcı demo modu gizlendi.' : 'Yatırımcı demo modu açıldı.', 'info');
+        }}
         style={styles.tourButton}
       />
 
@@ -153,12 +176,7 @@ export function ProfileScreen() {
         title="Çıkış Yap"
         icon="log-out-outline"
         variant="outline"
-        onPress={() =>
-          Alert.alert('Çıkış yap', 'Hesabından çıkmak istiyor musun?', [
-            { text: 'Vazgeç', style: 'cancel' },
-            { text: 'Çıkış Yap', style: 'destructive', onPress: handleSignOut },
-          ])
-        }
+        onPress={confirmSignOut}
         style={styles.logout}
       />
 

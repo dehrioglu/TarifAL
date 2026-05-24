@@ -7,6 +7,7 @@ import { MarketCheckoutScreen } from '../screens/main/MarketCheckoutScreen';
 import { PantryVisionScreen } from '../screens/main/PantryVisionScreen';
 import { RecipeDetailScreen } from '../screens/main/RecipeDetailScreen';
 import { SmartBasketScreen } from '../screens/main/SmartBasketScreen';
+import { InvestorDemoFlowScreen } from '../screens/main/InvestorDemoFlowScreen';
 import { WelcomeOnboardingScreen } from '../screens/onboarding/WelcomeOnboardingScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabs } from './MainTabs';
@@ -33,6 +34,7 @@ export function RootNavigator() {
           <Stack.Screen name="FamilyAccount" component={FamilyAccountScreen} />
           <Stack.Screen name="MarketCheckout" component={MarketCheckoutScreen} />
           <Stack.Screen name="AiChefChat" component={AiChefChatScreen} />
+          <Stack.Screen name="InvestorDemo" component={InvestorDemoFlowScreen} />
         </>
       )}
     </Stack.Navigator>

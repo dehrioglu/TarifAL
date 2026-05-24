@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { InvestorConversionStrip } from '../../components/InvestorConversionStrip';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import {
   demoDetectedIngredients,
   demoVisionAnalysisSteps,
@@ -32,6 +33,7 @@ export function PantryVisionScreen({ navigation }: Props) {
   );
   const [customIngredient, setCustomIngredient] = useState('');
   const [customIngredients, setCustomIngredients] = useState<string[]>([]);
+  const { showToast } = useFeedback();
 
   useEffect(() => {
     if (phase !== 'analysis') {
@@ -66,7 +68,7 @@ export function PantryVisionScreen({ navigation }: Props) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('İzin gerekli', 'Dolabını taramak için galeri erişim izni gerekiyor.');
+      showToast('Dolabını taramak için galeri erişim izni gerekiyor.', 'warning');
       return;
     }
 
@@ -91,11 +93,13 @@ export function PantryVisionScreen({ navigation }: Props) {
     const value = customIngredient.trim();
 
     if (!value) {
+      showToast('Eklemek için malzeme adı yaz.', 'warning');
       return;
     }
 
     setCustomIngredients((current) => [...new Set([...current, value])]);
     setCustomIngredient('');
+    showToast(`${value} malzeme listesine eklendi.`);
   };
 
   const removeCustomIngredient = (ingredient: string) => {
@@ -104,7 +108,7 @@ export function PantryVisionScreen({ navigation }: Props) {
 
   const continueToSmartBasket = () => {
     if (selectedIngredients.length === 0) {
-      Alert.alert('Malzeme seç', 'Akıllı Sepet oluşturmak için en az bir malzeme seçmelisin.');
+      showToast('Akıllı Sepet oluşturmak için en az bir malzeme seçmelisin.', 'warning');
       return;
     }
 
@@ -140,7 +144,13 @@ export function PantryVisionScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <TouchableOpacity onPress={pickImage} activeOpacity={0.86} style={styles.uploadBox}>
+      <TouchableOpacity
+        onPress={pickImage}
+        activeOpacity={0.86}
+        accessibilityRole="button"
+        accessibilityLabel="Dolap fotoğrafı seç"
+        style={styles.uploadBox}
+      >
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.previewImage} />
         ) : (
@@ -157,7 +167,16 @@ export function PantryVisionScreen({ navigation }: Props) {
           <Ionicons name="cloud-upload-outline" size={17} color="#FFFFFF" />
           <Text style={styles.primaryText}>Fotoğraf Seç</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={startAnalysis} activeOpacity={0.86} style={styles.secondaryButton}>
+        <TouchableOpacity
+          onPress={() => {
+            showToast('Demo fotoğraf analizi başlatıldı.', 'info');
+            startAnalysis();
+          }}
+          activeOpacity={0.86}
+          accessibilityRole="button"
+          accessibilityLabel="Demo fotoğrafla tara"
+          style={styles.secondaryButton}
+        >
           <Text style={styles.secondaryText}>Demo Fotoğrafla Tara</Text>
         </TouchableOpacity>
       </View>

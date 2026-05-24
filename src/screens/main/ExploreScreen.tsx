@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -48,7 +48,7 @@ export function ExploreScreen() {
   const toggleLike = useAppStore((store) => store.toggleLike);
   const suggestRecipes = useAppStore((store) => store.suggestRecipes);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
-  const { showToast } = useFeedback();
+  const { showToast, showDemoModal } = useFeedback();
 
   const suggestions = useMemo(() => suggestRecipes(pantry), [pantry, suggestRecipes]);
 
@@ -95,7 +95,14 @@ export function ExploreScreen() {
       }
     });
     showToast('Haftalık planın eksik malzemeleri sepete eklendi.');
-    Alert.alert('Haftalık liste hazır', 'Haftalık planın eksik malzemeleri sepete eklendi.');
+    showDemoModal({
+      title: 'Haftalık liste hazır',
+      message: 'Haftalık planın eksik malzemeleri sepete eklendi. İstersen Akıllı Sipariş akışına geçebilirsin.',
+      primaryLabel: 'Akıllı Siparişe Geç',
+      secondaryLabel: 'Sepete Git',
+      onPrimary: () => navigation.getParent()?.navigate('MarketCheckout'),
+      onSecondary: () => navigation.navigate('Cart'),
+    });
   };
 
   const handleToggleLike = (recipeId: string) => {

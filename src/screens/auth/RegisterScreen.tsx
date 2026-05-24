@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -7,6 +7,7 @@ import { AppButton } from '../../components/AppButton';
 import { InputField } from '../../components/InputField';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { AuthStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -18,18 +19,25 @@ export function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const signUp = useAppStore((store) => store.signUp);
   const loading = useAppStore((store) => store.authLoading);
+  const { showToast } = useFeedback();
 
   const handleSubmit = async () => {
     try {
       await signUp(name, email, password);
     } catch (error) {
-      Alert.alert('Kayıt tamamlanamadı', error instanceof Error ? error.message : 'Tekrar deneyin.');
+      showToast(error instanceof Error ? error.message : 'Kayıt tamamlanamadı, tekrar deneyin.', 'warning');
     }
   };
 
   return (
     <Screen scroll contentStyle={styles.content}>
-      <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.8} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Geri dön"
+        style={styles.backButton}
+      >
         <Ionicons name="chevron-back" size={30} color={theme.colors.text} />
       </TouchableOpacity>
 

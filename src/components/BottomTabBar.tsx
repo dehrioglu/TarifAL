@@ -25,6 +25,8 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         const isFocused = state.index === index;
         const meta = tabMeta[route.name];
         const options = descriptors[route.key].options;
+        const accessibilityLabel =
+          options.tabBarAccessibilityLabel ?? (route.name === 'AddRecipe' ? 'Tarif ekle' : meta.label);
 
         const onPress = () => {
           const event = navigation.emit({
@@ -44,7 +46,7 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               key={route.key}
               onPress={onPress}
               accessibilityRole="button"
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityLabel={accessibilityLabel}
               style={({ pressed }) => [styles.addSlot, pressed && styles.pressed]}
             >
               <View style={styles.addButton}>
@@ -60,7 +62,7 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             onPress={onPress}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel}
+            accessibilityLabel={accessibilityLabel}
             style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
           >
             <View>
