@@ -10,6 +10,7 @@ type PremiumHeroCardProps = {
   subtitle?: string;
   insight: string;
   onOpenSmartBasket: () => void;
+  onOpenVision: () => void;
   onOpenToday: () => void;
   onOpenPantry: () => void;
 };
@@ -19,6 +20,7 @@ export function PremiumHeroCard({
   subtitle = 'Lezzeti sizden, tarifi bizden',
   insight,
   onOpenSmartBasket,
+  onOpenVision,
   onOpenToday,
   onOpenPantry,
 }: PremiumHeroCardProps) {
@@ -89,10 +91,16 @@ export function PremiumHeroCard({
           <Text style={styles.secondaryText}>Evde Ne Var?</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={onOpenToday} activeOpacity={0.78} style={styles.todayLink}>
-        <Text style={styles.todayLinkText}>Bugün Ne Pişirsem? önerilerini gör</Text>
-        <Ionicons name="arrow-forward" size={14} color={theme.colors.primary} />
-      </TouchableOpacity>
+      <View style={styles.linkRow}>
+        <TouchableOpacity onPress={onOpenVision} activeOpacity={0.78} style={styles.todayLink}>
+          <Ionicons name="camera-outline" size={14} color={theme.colors.primary} />
+          <Text style={styles.todayLinkText}>Dolabımı Tara</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onOpenToday} activeOpacity={0.78} style={styles.todayLink}>
+          <Text style={styles.todayLinkText}>Bugün Ne Pişirsem?</Text>
+          <Ionicons name="arrow-forward" size={14} color={theme.colors.primary} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -218,9 +226,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
-  todayLink: {
+  linkRow: {
     alignSelf: 'flex-start',
     marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  todayLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,

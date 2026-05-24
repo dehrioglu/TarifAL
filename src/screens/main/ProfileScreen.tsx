@@ -67,6 +67,10 @@ export function ProfileScreen() {
     navigation.navigate('Home');
   };
 
+  const openFamilyAccount = () => {
+    navigation.getParent()?.navigate('FamilyAccount');
+  };
+
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.profileTop}>
@@ -120,6 +124,14 @@ export function ProfileScreen() {
         icon="sparkles-outline"
         variant="soft"
         onPress={handleReplayTour}
+        style={styles.tourButton}
+      />
+
+      <AppButton
+        title="Ev Hesabını Aç"
+        icon="people-outline"
+        variant="soft"
+        onPress={openFamilyAccount}
         style={styles.tourButton}
       />
 

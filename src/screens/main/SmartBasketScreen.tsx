@@ -11,6 +11,8 @@ export function SmartBasketScreen({ navigation, route }: Props) {
     <Screen scroll contentStyle={{ paddingTop: 14 }}>
       <SmartBasketWizard
         initialRecipeId={route.params?.recipeId}
+        initialIngredients={route.params?.ingredients}
+        startFrom={route.params?.startFrom}
         onClose={() => navigation.goBack()}
         onGoCart={() => navigation.navigate('MainTabs', { screen: 'Cart' })}
         onOpenRecipe={(recipeId) => navigation.navigate('RecipeDetail', { recipeId })}

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Preloader } from './src/components/Preloader';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { theme } from './src/constants/theme';
+import { FeedbackProvider } from './src/feedback/FeedbackProvider';
 import { OnboardingTourProvider } from './src/onboarding/OnboardingTourProvider';
 
 const navigationTheme = {
@@ -28,11 +29,13 @@ export default function App() {
       {showPreloader ? (
         <Preloader onDone={handlePreloaderDone} />
       ) : (
-        <NavigationContainer theme={navigationTheme}>
-          <OnboardingTourProvider>
-            <RootNavigator />
-          </OnboardingTourProvider>
-        </NavigationContainer>
+        <FeedbackProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <OnboardingTourProvider>
+              <RootNavigator />
+            </OnboardingTourProvider>
+          </NavigationContainer>
+        </FeedbackProvider>
       )}
     </SafeAreaProvider>
   );

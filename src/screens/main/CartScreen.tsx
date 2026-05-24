@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
@@ -9,18 +11,20 @@ import { InvestorConversionStrip } from '../../components/InvestorConversionStri
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
 import { demoSmartBasketMarket } from '../../data/demoSmartBasket';
+import { useFeedback } from '../../feedback/FeedbackProvider';
+import { RootStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 
 export function CartScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { showToast } = useFeedback();
   const cart = useAppStore((store) => store.cart);
   const orders = useAppStore((store) => store.orders);
   const incrementCartItem = useAppStore((store) => store.incrementCartItem);
   const decrementCartItem = useAppStore((store) => store.decrementCartItem);
   const removeCartItem = useAppStore((store) => store.removeCartItem);
   const clearCart = useAppStore((store) => store.clearCart);
-  const placeOrder = useAppStore((store) => store.placeOrder);
   const [address, setAddress] = useState('Saran Holding');
-  const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -32,38 +36,43 @@ export function CartScreen() {
     () => cart.filter((item) => item.source === 'smartBasket'),
     [cart],
   );
+  const familyListItems = useMemo(
+    () => cart.filter((item) => item.source === 'familyList'),
+    [cart],
+  );
   const smartBasketTotal = smartBasketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const familyListTotal = familyListItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const hasSmartBasketItems = smartBasketItems.length > 0;
+  const hasFamilyListItems = familyListItems.length > 0;
   const estimatedCommission = Math.max(
     18,
     Math.round(smartBasketTotal * demoSmartBasketMarket.commissionRate),
   );
 
-  const handleConfirm = async () => {
-    setSubmitting(true);
-    try {
-      await placeOrder(address);
-      setFeedback('Alışveriş planın hazır. Tarif için eksik ürünler sepetine eklendi; demo sipariş oluşturuldu.');
-      Alert.alert('Alışveriş planın hazır', 'Bu MVP demosunda ödeme simüle edilmiştir.');
-    } catch (error) {
-      Alert.alert('Sipariş tamamlanamadı', error instanceof Error ? error.message : 'Tekrar deneyin.');
-    } finally {
-      setSubmitting(false);
+  const handleConfirm = () => {
+    if (cart.length === 0) {
+      setFeedback('Önce bir tariften eksik malzemeleri sepete ekle.');
+      showToast('Sepetin boş. Önce eksik malzemeleri sepete eklemelisin.', 'warning');
+      return;
     }
+
+    navigation.navigate('MarketCheckout');
   };
 
   const handleClearCart = () => {
     clearCart();
     setFeedback('Sepet boşaltıldı.');
+    showToast('Sepet boşaltıldı.', 'info');
   };
 
   const handleTransform = () => {
     if (cart.length === 0) {
       setFeedback('Önce bir tariften eksik malzemeleri sepete ekle.');
+      showToast('Sepetin boş. Akıllı Sipariş için ürün eklemelisin.', 'warning');
       return;
     }
 
-    setFeedback('Tariften alışveriş listesine dönüşüm hazır. Demo Market eşleşmesi oluşturuldu.');
+    navigation.navigate('MarketCheckout');
   };
 
   return (
@@ -147,6 +156,36 @@ export function CartScreen() {
         </View>
       ) : null}
 
+      {hasFamilyListItems ? (
+        <View style={styles.familyCard}>
+          <View style={styles.smartBasketHeader}>
+            <View style={styles.familyIcon}>
+              <Ionicons name="people-outline" size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.smartBasketCopy}>
+              <Text style={styles.smartBasketTitle}>Ev Listesi'nden aktarıldı</Text>
+              <Text style={styles.smartBasketSubtitle}>
+                {familyListItems.length} ortak liste ürünü aile hesabından market sepetine eklendi.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.smartBasketStats}>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>₺{familyListTotal.toFixed(0)}</Text>
+              <Text style={styles.smartBasketLabel}>Ortak liste</Text>
+            </View>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>{familyListItems.length}</Text>
+              <Text style={styles.smartBasketLabel}>Ürün</Text>
+            </View>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>Ev hesabı</Text>
+              <Text style={styles.smartBasketLabel}>Kaynak</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.list}>
         {cart.length === 0 ? (
           <EmptyState
@@ -161,7 +200,10 @@ export function CartScreen() {
               item={item}
               onIncrement={() => incrementCartItem(item.id)}
               onDecrement={() => decrementCartItem(item.id)}
-              onRemove={() => removeCartItem(item.id)}
+              onRemove={() => {
+                removeCartItem(item.id);
+                showToast(`${item.name} sepetten silindi.`, 'info');
+              }}
             />
           ))
         )}
@@ -195,10 +237,9 @@ export function CartScreen() {
       </View>
 
       <AppButton
-        title="Siparişi Tamamla"
+        title="Akıllı Siparişe Geç"
         icon="bag-check"
         onPress={handleConfirm}
-        loading={submitting}
         disabled={cart.length === 0}
       />
       <Text style={styles.mockText}>* Bu MVP demosunda ödeme simüle edilmiştir.</Text>
@@ -221,7 +262,7 @@ export function CartScreen() {
                 <Text style={styles.orderTotal}>₺{order.total.toFixed(2)}</Text>
               </View>
               <Text style={styles.orderMeta} numberOfLines={1}>
-                {order.items.length} ürün • {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                {order.items.length} ürün • {order.marketName ?? 'Demo Market'} • {new Date(order.createdAt).toLocaleDateString('tr-TR')}
               </Text>
               <Text style={styles.orderAddress} numberOfLines={2}>{order.address}</Text>
             </View>
@@ -351,12 +392,31 @@ const styles = StyleSheet.create({
     ...theme.shadow,
     shadowOpacity: 0.05,
   },
+  familyCard: {
+    marginTop: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.05,
+  },
   smartBasketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
   },
   smartBasketIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  familyIcon: {
     width: 42,
     height: 42,
     borderRadius: 21,

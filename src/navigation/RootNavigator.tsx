@@ -1,6 +1,10 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAppStore } from '../store/useAppStore';
+import { AiChefChatScreen } from '../screens/main/AiChefChatScreen';
+import { FamilyAccountScreen } from '../screens/main/FamilyAccountScreen';
+import { MarketCheckoutScreen } from '../screens/main/MarketCheckoutScreen';
+import { PantryVisionScreen } from '../screens/main/PantryVisionScreen';
 import { RecipeDetailScreen } from '../screens/main/RecipeDetailScreen';
 import { SmartBasketScreen } from '../screens/main/SmartBasketScreen';
 import { WelcomeOnboardingScreen } from '../screens/onboarding/WelcomeOnboardingScreen';
@@ -25,6 +29,10 @@ export function RootNavigator() {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
           <Stack.Screen name="SmartBasket" component={SmartBasketScreen} />
+          <Stack.Screen name="PantryVision" component={PantryVisionScreen} />
+          <Stack.Screen name="FamilyAccount" component={FamilyAccountScreen} />
+          <Stack.Screen name="MarketCheckout" component={MarketCheckoutScreen} />
+          <Stack.Screen name="AiChefChat" component={AiChefChatScreen} />
         </>
       )}
     </Stack.Navigator>

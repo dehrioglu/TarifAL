@@ -14,6 +14,7 @@ const quickIngredients = ['Yumurta', 'Tavuk', 'Makarna', 'Pirinç', 'Domates', '
 
 type IngredientMatcherProps = {
   onOpenRecipe: (recipeId: string) => void;
+  onOpenVision?: () => void;
   maxMatches?: number;
   targetRef?: (node: View | null) => void;
   matchesTargetRef?: (node: View | null) => void;
@@ -21,6 +22,7 @@ type IngredientMatcherProps = {
 
 export function IngredientMatcher({
   onOpenRecipe,
+  onOpenVision,
   maxMatches = 3,
   targetRef,
   matchesTargetRef,
@@ -105,9 +107,9 @@ export function IngredientMatcher({
       <IngredientInput onAdd={addIngredient} />
       <SelectedIngredientsChips ingredients={pantryItems} onRemove={removeIngredient} />
 
-      <TouchableOpacity activeOpacity={0.86} style={styles.photoPlaceholder}>
+      <TouchableOpacity onPress={onOpenVision} activeOpacity={0.86} style={styles.photoPlaceholder}>
         <Ionicons name="camera-outline" size={17} color={theme.colors.primary} />
-        <Text style={styles.photoPlaceholderText}>Fotoğrafla ekleme yakında: kamera/OCR altyapısı hazır</Text>
+        <Text style={styles.photoPlaceholderText}>Fotoğrafla Dolabımı Tara: demo AI malzeme tanıma</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setShowMatches(true)} activeOpacity={0.86} style={styles.findButton}>

@@ -39,6 +39,9 @@ export function AppButton({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || loading }}
       style={({ pressed }) => [
         styles.button,
         styles[variant],

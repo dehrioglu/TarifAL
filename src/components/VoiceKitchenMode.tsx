@@ -1,5 +1,6 @@
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 
 import { theme } from '../constants/theme';
 import { Recipe } from '../types';
@@ -12,6 +13,11 @@ type VoiceKitchenModeProps = {
 
 export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeProps) {
   const firstStep = recipe.steps[0]?.text ?? 'Tarif adımlarını takip etmeye hazırsın.';
+  const [demoFeedback, setDemoFeedback] = useState('');
+
+  const listenDemoCommand = () => {
+    setDemoFeedback('Demo komut algılandı: “Sonraki adım”. Gerçek sesli komut MVP sonrası bağlanacak.');
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -45,7 +51,9 @@ export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeP
           ))}
         </View>
 
-        <TouchableOpacity activeOpacity={0.86} style={styles.primaryButton}>
+        {demoFeedback ? <Text style={styles.feedback}>{demoFeedback}</Text> : null}
+
+        <TouchableOpacity onPress={listenDemoCommand} activeOpacity={0.86} style={styles.primaryButton}>
           <Ionicons name="mic" size={18} color="#FFFFFF" />
           <Text style={styles.primaryText}>Demo Komutu Dinle</Text>
         </TouchableOpacity>
@@ -156,5 +164,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',
+  },
+  feedback: {
+    borderRadius: 16,
+    backgroundColor: theme.colors.primarySoft,
+    padding: 12,
+    color: theme.colors.primary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

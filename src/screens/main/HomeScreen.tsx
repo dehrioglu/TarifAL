@@ -20,6 +20,7 @@ import { TodayDecisionCard } from '../../components/TodayDecisionCard';
 import { WasteReductionCard } from '../../components/WasteReductionCard';
 import { WeeklyMealPlanner } from '../../components/WeeklyMealPlanner';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useOnboardingTour } from '../../onboarding/useOnboardingTour';
 import { useAppStore } from '../../store/useAppStore';
 import { FavoriteListType, Ingredient, Recipe } from '../../types';
@@ -51,6 +52,7 @@ export function HomeScreen() {
   const [weeklyExpanded, setWeeklyExpanded] = useState(false);
   const [marketChecks, setMarketChecks] = useState<Record<string, boolean>>({});
   const [analysisVisible, setAnalysisVisible] = useState(false);
+  const { showToast } = useFeedback();
   const { currentStep, isTourActive, registerTarget } = useOnboardingTour();
 
   const user = useAppStore((store) => store.user);
@@ -176,6 +178,18 @@ export function HomeScreen() {
     navigation.getParent()?.navigate('SmartBasket');
   };
 
+  const openPantryVision = () => {
+    navigation.getParent()?.navigate('PantryVision');
+  };
+
+  const openFamilyAccount = () => {
+    navigation.getParent()?.navigate('FamilyAccount');
+  };
+
+  const openAiChefChat = () => {
+    navigation.getParent()?.navigate('AiChefChat');
+  };
+
   const handleAssistantAction = (action: string) => {
     const pantryByAction: Record<string, string> = {
       'Daha sağlıklı yap': 'nohut, yeşillik, limon, mercimek',
@@ -198,11 +212,13 @@ export function HomeScreen() {
     ].filter(Boolean);
 
     dailyRecipes.forEach((recipe) => recipe && addMissingIngredientsToCart(recipe.id));
+    showToast('Bugünün yemek planı sepete aktarıldı.');
     Alert.alert('Liste hazır', 'Günlük menünün eksik malzemeleri sepete eklendi.');
   };
 
   const handleWeeklyList = () => {
     recipes.slice(0, 7).forEach((recipe) => addMissingIngredientsToCart(recipe.id));
+    showToast('Haftalık demo planın alışveriş listesi hazır.');
     Alert.alert('Haftalık liste hazır', 'Haftalık planın eksik malzemeleri sepete eklendi.');
   };
 
@@ -210,6 +226,7 @@ export function HomeScreen() {
     setPantryText('yoğurt, süt, yumurta, peynir, sebze');
     setActiveSection('pantry');
     setAnalysisVisible(true);
+    showToast('İsrafı Azalt modu için malzemeler hazırlandı.', 'info');
   };
 
   const toggleMarketItem = (key: string) => {
@@ -225,6 +242,7 @@ export function HomeScreen() {
     }
 
     selectedItems.forEach((item) => addIngredientToCart(item.recipe, item.ingredient));
+    showToast(`${selectedItems.length} eksik malzeme sepete eklendi.`);
     Alert.alert('Sepet güncellendi', `${selectedItems.length} eksik malzeme sepete eklendi.`);
   };
 
@@ -235,6 +253,7 @@ export function HomeScreen() {
         return acc;
       }, {}),
     );
+    showToast('Market listesi temizlendi.', 'info');
   };
 
   const renderMarketList = () => (
@@ -304,6 +323,7 @@ export function HomeScreen() {
       return (
         <IngredientMatcher
           onOpenRecipe={openRecipe}
+          onOpenVision={openPantryVision}
           maxMatches={2}
           targetRef={pantryTargetRef}
           matchesTargetRef={recipeCardsTargetRef}
@@ -333,7 +353,10 @@ export function HomeScreen() {
             userGoal={userGoal}
             onAnalyze={() => setAnalysisVisible(true)}
             onOpenRecipe={openRecipe}
-            onAddMissing={addMissingIngredientsToCart}
+            onAddMissing={(recipeId) => {
+              addMissingIngredientsToCart(recipeId);
+              showToast('Eksik malzemeler sepete aktarıldı.');
+            }}
           />
           <DailyMealPlan recipes={recipes} onCreateList={handleDailyList} onOpenRecipe={openRecipe} />
         </View>
@@ -362,7 +385,7 @@ export function HomeScreen() {
       return (
         <View ref={marketTargetRef} style={styles.panelStack}>
           {renderMarketList()}
-          <HomeShareCard />
+          <HomeShareCard onOpenFamilyAccount={openFamilyAccount} />
         </View>
       );
     }
@@ -398,13 +421,20 @@ export function HomeScreen() {
             <Text style={styles.greeting}>Merhaba {firstName} 👋</Text>
             <Text style={styles.title}>Bugün ne pişirelim?</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.85} style={styles.avatar}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Profil"
+            style={styles.avatar}
+          >
             <BrandLogo size={44} />
           </TouchableOpacity>
         </View>
         <PremiumHeroCard
           insight={heroInsight}
           onOpenSmartBasket={openSmartBasket}
+          onOpenVision={openPantryVision}
           onOpenToday={() => setActiveSection('today')}
           onOpenPantry={() => setActiveSection('pantry')}
         />
@@ -429,7 +459,14 @@ export function HomeScreen() {
             return (
               <TouchableOpacity
                 key={action.id}
-                onPress={() => setActiveSection(action.id)}
+                onPress={() => {
+                  if (action.id === 'chef') {
+                    openAiChefChat();
+                    return;
+                  }
+
+                  setActiveSection(action.id);
+                }}
                 activeOpacity={0.86}
                 style={[styles.quickAction, active && styles.quickActionActive]}
               >

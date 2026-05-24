@@ -98,13 +98,95 @@ export type CartItem = {
   ingredientId: string;
   name: string;
   gram: number;
+  unit?: string;
   price: number;
   quantity: number;
   selectedAlternative?: MarketAlternative;
-  source?: 'recipe' | 'smartBasket';
+  source?: 'recipe' | 'smartBasket' | 'familyList';
   sourceLabel?: string;
   marketName?: string;
   deliveryEstimate?: string;
+  commissionEstimate?: number;
+  averageBasket?: number;
+  conversionRate?: number;
+};
+
+export type FamilyMember = {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+  color: string;
+};
+
+export type FamilyShoppingItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  estimatedPrice: number;
+  category: string;
+  addedBy: string;
+  note: string;
+  checked: boolean;
+};
+
+export type FamilyActivity = {
+  id: string;
+  actor: string;
+  text: string;
+  time: string;
+  icon: string;
+};
+
+export type FamilyAccountState = {
+  homeName: string;
+  inviteCode: string;
+  members: FamilyMember[];
+  shoppingItems: FamilyShoppingItem[];
+  activities: FamilyActivity[];
+};
+
+export type DemoMarketOption = {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  deliveryEstimate: string;
+  deliveryFee: number;
+  serviceFee: number;
+  rating: number;
+  commissionRate: number;
+};
+
+export type DemoDeliverySlot = {
+  id: string;
+  label: string;
+  helper: string;
+  estimate: string;
+};
+
+export type DemoPaymentMethod = {
+  id: string;
+  label: string;
+  helper: string;
+  badge: string;
+};
+
+export type DemoTrackingStep = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+};
+
+export type PlaceOrderOptions = {
+  marketName?: string;
+  deliveryEstimate?: string;
+  deliverySlot?: string;
+  deliveryFee?: number;
+  serviceFee?: number;
+  paymentMethod?: string;
   commissionEstimate?: number;
   averageBasket?: number;
   conversionRate?: number;
@@ -116,6 +198,16 @@ export type Order = {
   items: CartItem[];
   address: string;
   total: number;
+  subtotal?: number;
+  deliveryFee?: number;
+  serviceFee?: number;
+  marketName?: string;
+  deliveryEstimate?: string;
+  deliverySlot?: string;
+  paymentMethod?: string;
+  commissionEstimate?: number;
+  averageBasket?: number;
+  conversionRate?: number;
   createdAt: string;
   status: 'mock-confirmed';
 };

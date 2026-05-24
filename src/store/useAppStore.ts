@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { demoFamilyAccount } from '../data/demoFamily';
 import { demoSmartBasketMarket, smartBasketBudgetModes } from '../data/demoSmartBasket';
 import { demoRecipes } from '../data/demoRecipes';
 import { onboardingStorage } from '../onboarding/onboardingStorage';
@@ -19,10 +20,13 @@ import {
   AppUser,
   CartItem,
   FavoriteListType,
+  FamilyAccountState,
+  FamilyShoppingItem,
   Ingredient,
   MarketAlternative,
   NewRecipePayload,
   Order,
+  PlaceOrderOptions,
   Recipe,
   SmartBasketFlowState,
   SmartBasketInput,
@@ -47,6 +51,7 @@ type AppState = {
   pantryText: string;
   userGoal: UserGoal;
   recipeLists: Record<FavoriteListType, string[]>;
+  familyAccount: FamilyAccountState;
   smartBasket: SmartBasketFlowState;
   hasSeenWelcomeOnboarding: boolean;
   needsWelcomeOnboarding: boolean;
@@ -66,6 +71,10 @@ type AppState = {
   setPantryText: (value: string) => void;
   setUserGoal: (goal: UserGoal) => void;
   toggleRecipeList: (list: FavoriteListType, recipeId: string) => void;
+  addFamilyShoppingItem: (item: Omit<FamilyShoppingItem, 'id' | 'checked'>) => void;
+  toggleFamilyShoppingItem: (itemId: string) => void;
+  removeFamilyShoppingItem: (itemId: string) => void;
+  addFamilyListToCart: () => void;
   addIngredientToCart: (recipe: Recipe, ingredient: Ingredient, alternative?: MarketAlternative) => void;
   addMissingIngredientsToCart: (recipeId: string, pantryText?: string) => void;
   addRecipeToCart: (recipeId: string) => void;
@@ -78,7 +87,7 @@ type AppState = {
   decrementCartItem: (itemId: string) => void;
   removeCartItem: (itemId: string) => void;
   clearCart: () => void;
-  placeOrder: (address: string) => Promise<void>;
+  placeOrder: (address: string, options?: PlaceOrderOptions) => Promise<Order>;
   addRecipe: (payload: NewRecipePayload) => Recipe;
   suggestRecipes: (pantryText: string) => AiSuggestion[];
 };
@@ -154,7 +163,10 @@ const createSmartBasketPlanFromRecipe = (
   };
 };
 
-type PersistedDemoState = Pick<AppState, 'likes' | 'cart' | 'userGoal' | 'recipeLists' | 'pantryText'>;
+type PersistedDemoState = Pick<
+  AppState,
+  'likes' | 'cart' | 'orders' | 'userGoal' | 'recipeLists' | 'pantryText' | 'familyAccount'
+>;
 
 const storageKey = 'tarifal-demo-state';
 
@@ -197,6 +209,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     cookLater: ['recipe-adana', 'recipe-mercimek'],
     cookedBefore: ['recipe-menemen'],
   },
+  familyAccount: persistedDemoState.familyAccount ?? demoFamilyAccount,
   smartBasket: {
     input: null,
     plans: [],
@@ -213,7 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       quantity: 1,
     },
   ],
-  orders: [],
+  orders: persistedDemoState.orders ?? [],
   hasSeenWelcomeOnboarding: false,
   needsWelcomeOnboarding: false,
   shouldStartGuidedTour: false,
@@ -396,6 +409,111 @@ export const useAppStore = create<AppState>((set, get) => ({
         recipeLists: {
           ...state.recipeLists,
           [list]: exists ? current.filter((id) => id !== recipeId) : [...current, recipeId],
+        },
+      };
+    });
+  },
+
+  addFamilyShoppingItem: (item) => {
+    const newItem: FamilyShoppingItem = {
+      ...item,
+      id: `family-${Date.now()}`,
+      checked: true,
+    };
+
+    set((state) => ({
+      familyAccount: {
+        ...state.familyAccount,
+        shoppingItems: [newItem, ...state.familyAccount.shoppingItems],
+        activities: [
+          {
+            id: `activity-${Date.now()}`,
+            actor: item.addedBy,
+            text: `${item.name} ortak listeye eklendi.`,
+            time: 'şimdi',
+            icon: 'add-circle-outline',
+          },
+          ...state.familyAccount.activities,
+        ].slice(0, 6),
+      },
+    }));
+  },
+
+  toggleFamilyShoppingItem: (itemId) => {
+    set((state) => ({
+      familyAccount: {
+        ...state.familyAccount,
+        shoppingItems: state.familyAccount.shoppingItems.map((item) =>
+          item.id === itemId ? { ...item, checked: !item.checked } : item,
+        ),
+      },
+    }));
+  },
+
+  removeFamilyShoppingItem: (itemId) => {
+    set((state) => ({
+      familyAccount: {
+        ...state.familyAccount,
+        shoppingItems: state.familyAccount.shoppingItems.filter((item) => item.id !== itemId),
+      },
+    }));
+  },
+
+  addFamilyListToCart: () => {
+    const checkedItems = get().familyAccount.shoppingItems.filter((item) => item.checked);
+
+    if (checkedItems.length === 0) {
+      return;
+    }
+
+    set((state) => {
+      const cart = [...state.cart];
+
+      checkedItems.forEach((item) => {
+        const cartItem: CartItem = {
+          id: `family_${item.id}`,
+          recipeId: 'family-list',
+          recipeTitle: 'Ev Listesi',
+          ingredientId: item.id,
+          name: item.name,
+          gram: item.quantity,
+          unit: item.unit,
+          price: item.estimatedPrice,
+          quantity: 1,
+          source: 'familyList',
+          sourceLabel: 'Ev Listesi',
+          marketName: 'Demo Market',
+          deliveryEstimate: '30-45 dk',
+          averageBasket: 214,
+          conversionRate: 42,
+        };
+        const existingIndex = cart.findIndex((current) => current.id === cartItem.id);
+
+        if (existingIndex >= 0) {
+          cart[existingIndex] = {
+            ...cart[existingIndex],
+            quantity: cart[existingIndex].quantity + 1,
+          };
+          return;
+        }
+
+        cart.push(cartItem);
+      });
+
+      return {
+        cart,
+        familyAccount: {
+          ...state.familyAccount,
+          activities: [
+            {
+              id: `activity-${Date.now()}`,
+              actor: 'Ev Listesi',
+              text: `${checkedItems.length} ürün market sepetine aktarıldı.`,
+              time: 'şimdi',
+              icon: 'cart-outline',
+            },
+            ...state.familyAccount.activities,
+          ].slice(0, 6),
         },
       };
     });
@@ -600,7 +718,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ cart: [] });
   },
 
-  placeOrder: async (address) => {
+  placeOrder: async (address, options) => {
     const { cart, user } = get();
 
     if (cart.length === 0) {
@@ -611,18 +729,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw new Error('Teslimat adresi gerekli.');
     }
 
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const deliveryFee = options?.deliveryFee ?? 0;
+    const serviceFee = options?.serviceFee ?? 0;
+    const total = subtotal + deliveryFee + serviceFee;
+
     const order: Order = {
       id: `order-${Date.now()}`,
       userId: user?.id ?? 'demo-user',
       items: cart,
       address: address.trim(),
-      total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      total,
+      subtotal,
+      deliveryFee,
+      serviceFee,
+      marketName: options?.marketName,
+      deliveryEstimate: options?.deliveryEstimate,
+      deliverySlot: options?.deliverySlot,
+      paymentMethod: options?.paymentMethod,
+      commissionEstimate: options?.commissionEstimate,
+      averageBasket: options?.averageBasket,
+      conversionRate: options?.conversionRate,
       createdAt: new Date().toISOString(),
       status: 'mock-confirmed',
     };
 
     await saveOrder(order);
     set((state) => ({ orders: [order, ...state.orders], cart: [] }));
+
+    return order;
   },
 
   addRecipe: (payload) => {
@@ -693,8 +828,10 @@ useAppStore.subscribe((state) =>
   writePersistedDemoState({
     likes: state.likes,
     cart: state.cart,
+    orders: state.orders,
     userGoal: state.userGoal,
     recipeLists: state.recipeLists,
     pantryText: state.pantryText,
+    familyAccount: state.familyAccount,
   }),
 );

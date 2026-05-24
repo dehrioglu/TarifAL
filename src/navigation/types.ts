@@ -17,6 +17,10 @@ export type RootStackParamList = {
   Auth: undefined;
   WelcomeOnboarding: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
-  RecipeDetail: { recipeId: string };
-  SmartBasket: { recipeId?: string } | undefined;
+  RecipeDetail: { recipeId: string; openCooking?: boolean };
+  SmartBasket: { recipeId?: string; ingredients?: string[]; startFrom?: 'intro' | 'servings' } | undefined;
+  PantryVision: undefined;
+  FamilyAccount: undefined;
+  MarketCheckout: undefined;
+  AiChefChat: undefined;
 };

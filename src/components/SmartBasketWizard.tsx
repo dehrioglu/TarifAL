@@ -14,11 +14,14 @@ import { SmartBasketSuccess } from './SmartBasketSuccess';
 import { BrandLogo } from './BrandLogo';
 import { smartBasketQuickIngredients } from '../data/demoSmartBasket';
 import { theme } from '../constants/theme';
+import { useFeedback } from '../feedback/FeedbackProvider';
 import { useAppStore } from '../store/useAppStore';
 import { parsePantryText } from '../utils/recipeMatching';
 
 type SmartBasketWizardProps = {
   initialRecipeId?: string;
+  initialIngredients?: string[];
+  startFrom?: 'intro' | 'servings';
   onClose: () => void;
   onGoCart: () => void;
   onOpenRecipe: (recipeId: string) => void;
@@ -90,6 +93,8 @@ const totalSteps = 8;
 
 export function SmartBasketWizard({
   initialRecipeId,
+  initialIngredients: initialIngredientsProp,
+  startFrom = 'intro',
   onClose,
   onGoCart,
   onOpenRecipe,
@@ -101,11 +106,16 @@ export function SmartBasketWizard({
   const addSmartBasketItemsToCart = useAppStore((store) => store.addSmartBasketItemsToCart);
   const resetSmartBasketFlow = useAppStore((store) => store.resetSmartBasketFlow);
   const completeSmartBasketDemo = useAppStore((store) => store.completeSmartBasketDemo);
+  const { showToast } = useFeedback();
   const initialIngredients = useMemo(() => {
+    if (initialIngredientsProp && initialIngredientsProp.length > 0) {
+      return initialIngredientsProp;
+    }
+
     const pantryItems = parsePantryText(pantryText);
     return pantryItems.length > 0 ? pantryItems : smartBasketQuickIngredients.slice(0, 4);
-  }, [pantryText]);
-  const [step, setStep] = useState<WizardStep>('intro');
+  }, [initialIngredientsProp, pantryText]);
+  const [step, setStep] = useState<WizardStep>(startFrom);
   const [ingredients, setIngredients] = useState(initialIngredients);
   const [servings, setServings] = useState(2);
   const [budgetModeId, setBudgetModeId] = useState('under-250');
@@ -152,6 +162,7 @@ export function SmartBasketWizard({
   const handleAddToCart = () => {
     addSmartBasketItemsToCart(selectedPlan?.id);
     completeSmartBasketDemo();
+    showToast('Akıllı sepet hazırlandı. Eksik ürünler sepete aktarıldı.');
     setStep('success');
   };
 

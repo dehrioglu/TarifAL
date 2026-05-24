@@ -12,18 +12,35 @@ type CartItemCardProps = {
 };
 
 export function CartItemCard({ item, onIncrement, onDecrement, onRemove }: CartItemCardProps) {
+  const normalizedName = item.name.toLocaleLowerCase('tr-TR');
+  const fallbackUnit =
+    item.source === 'familyList'
+      ? normalizedName.includes('süt')
+        ? 'lt'
+        : normalizedName.includes('yumurta')
+          ? 'koli'
+          : normalizedName.includes('yoğurt')
+            ? 'kg'
+            : normalizedName.includes('tavuk')
+              ? 'gr'
+              : 'adet'
+      : 'gr';
+  const amountText = `${item.gram} ${item.unit ?? fallbackUnit}`;
+
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
-        {item.source === 'smartBasket' ? (
+        {item.source === 'smartBasket' || item.source === 'familyList' ? (
           <View style={styles.sourceBadge}>
-            <Text style={styles.sourceBadgeText}>Akıllı Sepet'ten aktarıldı</Text>
+            <Text style={styles.sourceBadgeText}>
+              {item.source === 'familyList' ? 'Ev Listesi\'nden aktarıldı' : 'Akıllı Sepet\'ten aktarıldı'}
+            </Text>
           </View>
         ) : null}
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.recipe}>Tarif: {item.recipeTitle}</Text>
         <Text style={styles.meta}>
-          {item.gram} gr • ₺{item.price.toFixed(2)} / adet
+          {amountText} • ₺{item.price.toFixed(2)} / adet
         </Text>
       </View>
       <View style={styles.qtyRow}>

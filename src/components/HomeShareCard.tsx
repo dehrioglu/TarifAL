@@ -4,7 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { demoHomeActivities } from '../data/demoPremium';
 import { theme } from '../constants/theme';
 
-export function HomeShareCard() {
+type HomeShareCardProps = {
+  onOpenFamilyAccount?: () => void;
+};
+
+export function HomeShareCard({ onOpenFamilyAccount }: HomeShareCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -33,8 +37,8 @@ export function HomeShareCard() {
         ))}
       </View>
 
-      <TouchableOpacity activeOpacity={0.86} style={styles.button}>
-        <Text style={styles.buttonText}>Ev Listesi Oluştur</Text>
+      <TouchableOpacity onPress={onOpenFamilyAccount} activeOpacity={0.86} style={styles.button}>
+        <Text style={styles.buttonText}>Ev Hesabını Aç</Text>
       </TouchableOpacity>
     </View>
   );

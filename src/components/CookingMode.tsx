@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
@@ -9,9 +9,10 @@ type CookingModeProps = {
   recipe: Recipe;
   visible: boolean;
   onClose: () => void;
+  onFinish?: () => void;
 };
 
-export function CookingMode({ recipe, visible, onClose }: CookingModeProps) {
+export function CookingMode({ recipe, visible, onClose, onFinish }: CookingModeProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [keepAwake, setKeepAwake] = useState(true);
   const [minutes, setMinutes] = useState(Math.max(1, Math.round(recipe.prepTime / Math.max(1, recipe.steps.length))));
@@ -28,8 +29,8 @@ export function CookingMode({ recipe, visible, onClose }: CookingModeProps) {
   const next = () => setStepIndex((value) => Math.min(recipe.steps.length - 1, value + 1));
   const previous = () => setStepIndex((value) => Math.max(0, value - 1));
   const finish = () => {
-    Alert.alert('Afiyet olsun!', 'Tarif tamamlandı.');
     onClose();
+    onFinish?.();
   };
 
   if (!visible) {

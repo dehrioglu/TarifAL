@@ -329,6 +329,11 @@ export function AddRecipeScreen() {
         disabled={!canSubmit}
         style={styles.submit}
       />
+      {!canSubmit ? (
+        <Text style={styles.disabledHint}>
+          Paylaşmak için başlık, açıklama, en az bir malzeme ve bir hazırlık adımı eklemelisin.
+        </Text>
+      ) : null}
     </Screen>
   );
 }
@@ -512,6 +517,14 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: 36,
+    marginBottom: 6,
+  },
+  disabledHint: {
     marginBottom: 10,
+    color: theme.colors.subtle,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });

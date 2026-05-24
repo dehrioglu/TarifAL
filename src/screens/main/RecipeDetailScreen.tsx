@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Alert, ImageBackground, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ImageBackground, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { IngredientCard } from '../../components/IngredientCard';
 import { MissingIngredientsBox } from '../../components/MissingIngredientsBox';
 import { VoiceKitchenMode } from '../../components/VoiceKitchenMode';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 import { MarketAlternative } from '../../types';
@@ -20,6 +21,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   const [cookingVisible, setCookingVisible] = useState(false);
   const [voiceVisible, setVoiceVisible] = useState(false);
   const [madeFeedback, setMadeFeedback] = useState('');
+  const { showToast, showDemoModal } = useFeedback();
   const insets = useSafeAreaInsets();
   const recipe = useAppStore((store) =>
     store.recipes.find((item) => item.id === route.params.recipeId),
@@ -36,6 +38,12 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     () => (recipe ? getRecipeMatch(recipe, parsePantryText(pantryText)) : undefined),
     [pantryText, recipe],
   );
+
+  useEffect(() => {
+    if (route.params.openCooking) {
+      setCookingVisible(true);
+    }
+  }, [route.params.openCooking]);
 
   if (!recipe || !match) {
     return (
@@ -60,26 +68,64 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     }
 
     addIngredientToCart(recipe, ingredient, alternative);
-    Alert.alert('Sepete eklendi', `${alternative?.name ?? ingredient.name} sepetine eklendi.`);
+    showToast(`${alternative?.name ?? ingredient.name} sepete eklendi.`);
   };
 
   const handleAddAll = () => {
     addRecipeToCart(recipe.id);
-    Alert.alert('Sepete eklendi', `${recipe.title} için tüm malzemeler sepete eklendi.`);
+    showDemoModal({
+      title: 'Malzemeler sepete eklendi',
+      message: `${recipe.title} için tüm malzemeler sepete aktarıldı. Bu akış demo modunda market siparişine dönüştürülebilir.`,
+      primaryLabel: 'Akıllı Siparişe Geç',
+      secondaryLabel: 'Sepete Git',
+      onPrimary: () => navigation.navigate('MarketCheckout'),
+      onSecondary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+    });
   };
 
   const handleAddMissing = () => {
     addMissingIngredientsToCart(recipe.id);
-    Alert.alert('Eksikler sepette', `${recipe.title} için eksik ürünler sepete eklendi.`);
+    showDemoModal({
+      title: 'Eksikler akıllı sepette',
+      message: `${recipe.title} için eksik ürünler sepete eklendi. İstersen şimdi demo market sipariş akışına geçebilirsin.`,
+      primaryLabel: 'Akıllı Siparişe Geç',
+      secondaryLabel: 'Sepete Git',
+      onPrimary: () => navigation.navigate('MarketCheckout'),
+      onSecondary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+    });
   };
 
   const handleSmartBasket = () => {
+    showToast('Bu tarif Akıllı Sepet planına aktarılıyor.', 'info');
     navigation.navigate('SmartBasket', { recipeId: recipe.id });
+  };
+
+  const handleToggleLike = () => {
+    toggleLike(recipe.id);
+    showToast(liked ? 'Favorilerden çıkarıldı.' : 'Favorilere eklendi.');
+  };
+
+  const handleCookLater = () => {
+    toggleRecipeList('cookLater', recipe.id);
+    showToast(savedForLater ? 'Sonra pişireceğim listesinden çıkarıldı.' : 'Sonra pişireceğim listesine eklendi.');
   };
 
   const handleMadeRecipe = () => {
     toggleRecipeList('cookedBefore', recipe.id);
     setMadeFeedback('Eline sağlık! Bu tarifi mutfak geçmişine ekledik. İlk Tarif rozeti güncellendi.');
+    showToast('Tarif mutfak geçmişine eklendi.');
+  };
+
+  const handleCookingFinished = () => {
+    toggleRecipeList('cookedBefore', recipe.id);
+    showDemoModal({
+      title: 'Afiyet olsun!',
+      message: `${recipe.title} tamamlandı ve mutfak geçmişine eklendi. İstersen benzer tarifleri AI Şef ile keşfedebilirsin.`,
+      primaryLabel: 'Benzer Tarif Öner',
+      secondaryLabel: 'Ana Sayfa',
+      onPrimary: () => navigation.navigate('AiChefChat'),
+      onSecondary: () => navigation.navigate('MainTabs', { screen: 'Home' }),
+    });
   };
 
   return (
@@ -94,7 +140,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
             <Ionicons name="chevron-back" size={28} color={theme.colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => toggleLike(recipe.id)}
+            onPress={handleToggleLike}
             activeOpacity={0.86}
             style={[styles.floatingButton, styles.likeButton, { top: insets.top + 12 }]}
           >
@@ -141,11 +187,11 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
           </View>
 
           <View style={styles.quickActions}>
-            <TouchableOpacity onPress={() => toggleLike(recipe.id)} activeOpacity={0.85} style={styles.quickButton}>
+            <TouchableOpacity onPress={handleToggleLike} activeOpacity={0.85} style={styles.quickButton}>
               <Ionicons name={liked ? 'heart' : 'heart-outline'} size={17} color={theme.colors.primary} />
               <Text style={styles.quickButtonText}>{liked ? 'Favorilerde' : 'Favorilere Ekle'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleRecipeList('cookLater', recipe.id)} activeOpacity={0.85} style={styles.quickButton}>
+            <TouchableOpacity onPress={handleCookLater} activeOpacity={0.85} style={styles.quickButton}>
               <Ionicons name={savedForLater ? 'bookmark' : 'bookmark-outline'} size={17} color={theme.colors.primary} />
               <Text style={styles.quickButtonText}>{savedForLater ? 'Planlandı' : 'Sonra Pişireceğim'}</Text>
             </TouchableOpacity>
@@ -276,7 +322,12 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
           </View>
         </View>
       </ScrollView>
-      <CookingMode recipe={recipe} visible={cookingVisible} onClose={() => setCookingVisible(false)} />
+      <CookingMode
+        recipe={recipe}
+        visible={cookingVisible}
+        onClose={() => setCookingVisible(false)}
+        onFinish={handleCookingFinished}
+      />
       <VoiceKitchenMode recipe={recipe} visible={voiceVisible} onClose={() => setVoiceVisible(false)} />
     </View>
   );

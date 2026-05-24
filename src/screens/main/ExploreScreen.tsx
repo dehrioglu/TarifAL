@@ -12,6 +12,7 @@ import { Screen } from '../../components/Screen';
 import { WeeklyMealPlanner } from '../../components/WeeklyMealPlanner';
 import { categoryFilters } from '../../constants/categories';
 import { theme } from '../../constants/theme';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useAppStore } from '../../store/useAppStore';
 import { CategoryFilter, Difficulty } from '../../types';
 import { getRecipeCost, sortRecipesByGoal } from '../../utils/recipeMatching';
@@ -47,6 +48,7 @@ export function ExploreScreen() {
   const toggleLike = useAppStore((store) => store.toggleLike);
   const suggestRecipes = useAppStore((store) => store.suggestRecipes);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
+  const { showToast } = useFeedback();
 
   const suggestions = useMemo(() => suggestRecipes(pantry), [pantry, suggestRecipes]);
 
@@ -92,7 +94,14 @@ export function ExploreScreen() {
         addMissingIngredientsToCart(recipe.id);
       }
     });
+    showToast('Haftalık planın eksik malzemeleri sepete eklendi.');
     Alert.alert('Haftalık liste hazır', 'Haftalık planın eksik malzemeleri sepete eklendi.');
+  };
+
+  const handleToggleLike = (recipeId: string) => {
+    const liked = Boolean(likes[recipeId]);
+    toggleLike(recipeId);
+    showToast(liked ? 'Favorilerden çıkarıldı.' : 'Favorilere eklendi.');
   };
 
   return (
@@ -231,7 +240,7 @@ export function ExploreScreen() {
               recipe={recipe}
               liked={Boolean(likes[recipe.id])}
               onPress={() => openRecipe(recipe.id)}
-              onToggleLike={() => toggleLike(recipe.id)}
+              onToggleLike={() => handleToggleLike(recipe.id)}
               variant="grid"
             />
           ))
