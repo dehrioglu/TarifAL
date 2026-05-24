@@ -4,11 +4,11 @@
     "slug": "tarif-ai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/tarifal-mark.png",
+    "icon": "./public/tarif.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/tarifal-logo.png",
+      "image": "./public/tarif.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,7 +18,7 @@
     "android": {
       "package": "com.tarifai.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/tarifal-mark.png",
+        "foregroundImage": "./public/tarif.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -27,7 +27,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./public/tarif.png"
     },
     "extra": {
       "eas": {

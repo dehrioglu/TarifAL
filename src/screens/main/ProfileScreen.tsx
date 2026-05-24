@@ -71,7 +71,7 @@ export function ProfileScreen() {
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.profileTop}>
         <View style={styles.avatar}>
-          <BrandLogo variant="mark" size={78} />
+          <BrandLogo size={94} />
         </View>
         <Text style={styles.name}>{user?.name ?? 'Enes'}</Text>
         <Text style={styles.email}>{user?.email ?? 'tarifai@tarifai.com'}</Text>

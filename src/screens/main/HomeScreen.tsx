@@ -34,12 +34,12 @@ type MarketListItem = {
 };
 
 const quickActions: Array<{ id: HomeSection; label: string }> = [
-  { id: 'pantry', label: '🥚 Evde Ne Var?' },
-  { id: 'chef', label: '✨ AI Şef' },
   { id: 'today', label: '📅 Bugün Ne Pişirsem?' },
+  { id: 'pantry', label: '🥚 Evde Ne Var?' },
   { id: 'weekly', label: '🗓 Haftalık Plan' },
   { id: 'market', label: '🛒 Market Listesi' },
   { id: 'favorites', label: '❤️ Favorilerim' },
+  { id: 'chef', label: '✨ AI Şef’e Sor' },
 ];
 
 export function HomeScreen() {
@@ -170,6 +170,10 @@ export function HomeScreen() {
 
   const openRecipe = (recipeId: string) => {
     navigation.getParent()?.navigate('RecipeDetail', { recipeId });
+  };
+
+  const openSmartBasket = () => {
+    navigation.getParent()?.navigate('SmartBasket');
   };
 
   const handleAssistantAction = (action: string) => {
@@ -395,12 +399,13 @@ export function HomeScreen() {
             <Text style={styles.title}>Bugün ne pişirelim?</Text>
           </View>
           <TouchableOpacity activeOpacity={0.85} style={styles.avatar}>
-            <BrandLogo variant="mark" size={40} />
+            <BrandLogo size={44} />
           </TouchableOpacity>
         </View>
         <PremiumHeroCard
           insight={heroInsight}
-          onFindWithAi={() => setAnalysisVisible(true)}
+          onOpenSmartBasket={openSmartBasket}
+          onOpenToday={() => setActiveSection('today')}
           onOpenPantry={() => setActiveSection('pantry')}
         />
       </View>
@@ -415,26 +420,29 @@ export function HomeScreen() {
         />
       </View>
 
-      <View ref={quickActionsTargetRef} style={styles.quickActions}>
-        {quickActions.map((action) => {
-          const active = activeSection === action.id;
+      <View ref={quickActionsTargetRef} style={styles.quickStartBlock}>
+        <Text style={styles.quickStartTitle}>Hızlı Başla</Text>
+        <View style={styles.quickActions}>
+          {quickActions.map((action) => {
+            const active = activeSection === action.id;
 
-          return (
-            <TouchableOpacity
-              key={action.id}
-              onPress={() => setActiveSection(action.id)}
-              activeOpacity={0.86}
-              style={[styles.quickAction, active && styles.quickActionActive]}
-            >
-              <Text
-                style={[styles.quickActionText, active && styles.quickActionTextActive]}
-                numberOfLines={1}
+            return (
+              <TouchableOpacity
+                key={action.id}
+                onPress={() => setActiveSection(action.id)}
+                activeOpacity={0.86}
+                style={[styles.quickAction, active && styles.quickActionActive]}
               >
-                {action.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                <Text
+                  style={[styles.quickActionText, active && styles.quickActionTextActive]}
+                  numberOfLines={1}
+                >
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       <View style={styles.dynamicArea}>{renderActivePanel()}</View>
@@ -525,11 +533,19 @@ const styles = StyleSheet.create({
   search: {
     marginBottom: 14,
   },
+  quickStartBlock: {
+    paddingBottom: 16,
+  },
+  quickStartTitle: {
+    marginBottom: 10,
+    color: theme.colors.text,
+    fontSize: 17,
+    fontWeight: '900',
+  },
   quickActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 9,
-    paddingBottom: 16,
   },
   quickAction: {
     width: '48.5%',

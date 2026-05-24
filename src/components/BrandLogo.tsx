@@ -1,45 +1,42 @@
-import { Image, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-
-import { theme } from '../constants/theme';
+import { createElement, type CSSProperties } from 'react';
+import { Image, ImageStyle, Platform, StyleProp, StyleSheet } from 'react-native';
 
 type BrandLogoProps = {
-  variant?: 'full' | 'mark';
   size?: number;
-  style?: StyleProp<ViewStyle>;
-  imageStyle?: StyleProp<ImageStyle>;
+  style?: StyleProp<ImageStyle>;
+  className?: string;
 };
 
-export function BrandLogo({ variant = 'full', size = 96, style, imageStyle }: BrandLogoProps) {
-  const source =
-    variant === 'full'
-      ? require('../../assets/tarifal-logo.png')
-      : require('../../assets/tarifal-mark.png');
+const nativeLogoSource = require('../../public/tarif.png');
+
+export function BrandLogo({ size = 96, style, className }: BrandLogoProps) {
+  if (Platform.OS === 'web') {
+    const flattenedStyle = StyleSheet.flatten(style) ?? {};
+    const webStyle: CSSProperties = {
+      width: size,
+      height: size,
+      objectFit: 'contain',
+      display: 'block',
+      ...(flattenedStyle as CSSProperties),
+    };
+
+    return createElement('img', {
+      src: '/tarif.png',
+      alt: 'TarifAL',
+      className,
+      style: webStyle,
+    });
+  }
 
   return (
-    <View
+    <Image
+      source={nativeLogoSource}
+      accessibilityLabel="TarifAL"
+      resizeMode="contain"
       style={[
-        styles.wrap,
-        variant === 'mark' && styles.markWrap,
-        { width: size, height: size },
+        { width: size, height: size, objectFit: 'contain' },
         style,
       ]}
-    >
-      <Image source={source} resizeMode="contain" style={[styles.image, imageStyle]} />
-    </View>
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markWrap: {
-    borderRadius: theme.radius.pill,
-    backgroundColor: '#FFFFFF',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-});

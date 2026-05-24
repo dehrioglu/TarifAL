@@ -25,9 +25,9 @@ export const onboardingTourSteps: TourStep[] = [
   {
     id: 'home-categories',
     target: 'homeQuickActions',
-    title: 'Kategorilere göre keşfet',
+    title: 'Hızlı Başla',
     description:
-      'Kahvaltı, ana yemek, tatlı veya pratik tarifler gibi kategorilerle aradığını hızlıca bul.',
+      'Bugün ne pişirsem, evde ne var, haftalık plan ve market listesi gibi ana aksiyonlara buradan geçebilirsin.',
   },
   {
     id: 'home-recipes',

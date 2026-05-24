@@ -1,13 +1,8 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
-};
-
-export type RootStackParamList = {
-  Auth: undefined;
-  WelcomeOnboarding: undefined;
-  MainTabs: undefined;
-  RecipeDetail: { recipeId: string };
 };
 
 export type MainTabParamList = {
@@ -16,4 +11,12 @@ export type MainTabParamList = {
   AddRecipe: undefined;
   Cart: undefined;
   Profile: undefined;
+};
+
+export type RootStackParamList = {
+  Auth: undefined;
+  WelcomeOnboarding: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+  RecipeDetail: { recipeId: string };
+  SmartBasket: { recipeId?: string } | undefined;
 };

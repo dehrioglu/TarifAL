@@ -3,20 +3,23 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
+import { BrandLogo } from './BrandLogo';
 
 type PremiumHeroCardProps = {
   title?: string;
   subtitle?: string;
   insight: string;
-  onFindWithAi: () => void;
+  onOpenSmartBasket: () => void;
+  onOpenToday: () => void;
   onOpenPantry: () => void;
 };
 
 export function PremiumHeroCard({
-  title = 'Bugün senin için 3 akıllı tarif buldum ✨',
-  subtitle = 'Evindeki malzemelere, zamanına ve bütçene göre önerildi.',
+  title = 'Malzemeden sepete akıllı plan hazır ✨',
+  subtitle = 'Lezzeti sizden, tarifi bizden',
   insight,
-  onFindWithAi,
+  onOpenSmartBasket,
+  onOpenToday,
   onOpenPantry,
 }: PremiumHeroCardProps) {
   const sparkle = useRef(new Animated.Value(0)).current;
@@ -56,20 +59,21 @@ export function PremiumHeroCard({
       <View style={styles.glowOne} />
       <View style={styles.glowTwo} />
       <View style={styles.topRow}>
+        <View style={styles.brandRow}>
+          <BrandLogo size={68} />
+          <View style={styles.brandCopy}>
+            <Text style={styles.brandSlogan}>{subtitle}</Text>
+          </View>
+        </View>
         <View style={styles.badge}>
           <Animated.View style={{ transform: [{ scale }], opacity }}>
             <Ionicons name="sparkles" size={14} color={theme.colors.primary} />
           </Animated.View>
-          <Text style={styles.badgeText}>TarifAL AI aktif</Text>
-        </View>
-        <View style={styles.iconCluster}>
-          <Ionicons name="restaurant-outline" size={18} color={theme.colors.primary} />
-          <Ionicons name="cart-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.badgeText}>AI aktif</Text>
         </View>
       </View>
 
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
 
       <View style={styles.insightBox}>
         <Ionicons name="analytics-outline" size={17} color={theme.colors.primary} />
@@ -77,14 +81,18 @@ export function PremiumHeroCard({
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity onPress={onFindWithAi} activeOpacity={0.86} style={styles.primaryAction}>
+        <TouchableOpacity onPress={onOpenSmartBasket} activeOpacity={0.86} style={styles.primaryAction}>
           <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-          <Text style={styles.primaryText}>AI ile Tarif Bul</Text>
+          <Text style={styles.primaryText}>Akıllı Sepet Oluştur</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onOpenPantry} activeOpacity={0.86} style={styles.secondaryAction}>
-          <Text style={styles.secondaryText}>Malzemelerimi Gir</Text>
+          <Text style={styles.secondaryText}>Evde Ne Var?</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={onOpenToday} activeOpacity={0.78} style={styles.todayLink}>
+        <Text style={styles.todayLinkText}>Bugün Ne Pişirsem? önerilerini gör</Text>
+        <Ionicons name="arrow-forward" size={14} color={theme.colors.primary} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -125,6 +133,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  brandRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandCopy: {
+    flex: 1,
+  },
+  brandSlogan: {
+    color: theme.colors.muted,
+    fontSize: 11,
+    fontWeight: '900',
+  },
   badge: {
     minHeight: 32,
     borderRadius: theme.radius.pill,
@@ -139,29 +161,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
   },
-  iconCluster: {
-    width: 54,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
   title: {
     marginTop: 16,
     color: theme.colors.text,
     fontSize: 24,
     lineHeight: 30,
     fontWeight: '900',
-  },
-  subtitle: {
-    marginTop: 8,
-    color: theme.colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '800',
   },
   insightBox: {
     marginTop: 14,
@@ -185,7 +190,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryAction: {
-    flex: 1.1,
+    flex: 1.15,
     minHeight: 46,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.primary,
@@ -211,6 +216,18 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: theme.colors.primary,
     fontSize: 13,
+    fontWeight: '900',
+  },
+  todayLink: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  todayLinkText: {
+    color: theme.colors.primary,
+    fontSize: 12,
     fontWeight: '900',
   },
 });

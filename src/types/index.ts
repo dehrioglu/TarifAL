@@ -101,6 +101,13 @@ export type CartItem = {
   price: number;
   quantity: number;
   selectedAlternative?: MarketAlternative;
+  source?: 'recipe' | 'smartBasket';
+  sourceLabel?: string;
+  marketName?: string;
+  deliveryEstimate?: string;
+  commissionEstimate?: number;
+  averageBasket?: number;
+  conversionRate?: number;
 };
 
 export type Order = {
@@ -129,6 +136,67 @@ export type RecipeMatch = {
   matchPercent: number;
   label: string;
   qualityLabel: string;
+};
+
+export type SmartBasketBudgetMode = {
+  id: string;
+  label: string;
+  helper: string;
+  badge: string;
+  limit?: number;
+};
+
+export type SmartBasketMarketInfo = {
+  name: string;
+  deliveryEstimate: string;
+  commissionRate: number;
+  averageBasket: number;
+  conversionRate: number;
+};
+
+export type SmartBasketMetric = {
+  id: string;
+  label: string;
+  value: string;
+  helper: string;
+};
+
+export type SmartBasketInput = {
+  ingredients: string[];
+  servings: number;
+  budgetModeId: string;
+  recipeId?: string;
+};
+
+export type SmartBasketPlan = {
+  id: string;
+  recipeId: string;
+  recipeTitle: string;
+  recipeImage: string;
+  description: string;
+  category: RecipeCategory;
+  prepTime: number;
+  difficulty: Difficulty;
+  calories: number;
+  servings: number;
+  matchPercent: number;
+  suitabilityScore: number;
+  estimatedCost: number;
+  perPersonCost: number;
+  missingIngredients: Ingredient[];
+  matchedIngredients: Ingredient[];
+  missingTotal: number;
+  estimatedCommission: number;
+  budgetModeId: string;
+  budgetLabel: string;
+};
+
+export type SmartBasketFlowState = {
+  input: SmartBasketInput | null;
+  plans: SmartBasketPlan[];
+  selectedPlanId?: string;
+  completedPlanId?: string;
+  lastAddedAt?: string;
 };
 
 export type NewRecipePayload = {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { demoSmartBasketMarket, smartBasketBudgetModes } from '../data/demoSmartBasket';
 import { demoRecipes } from '../data/demoRecipes';
 import { onboardingStorage } from '../onboarding/onboardingStorage';
 import { signInWithEmail, registerWithEmail, signOutUser } from '../services/authService';
@@ -23,9 +24,17 @@ import {
   NewRecipePayload,
   Order,
   Recipe,
+  SmartBasketFlowState,
+  SmartBasketInput,
+  SmartBasketPlan,
   UserGoal,
 } from '../types';
-import { getRecipeMatch, parsePantryText } from '../utils/recipeMatching';
+import {
+  getRecipeCost,
+  getRecipeMatch,
+  getRecipeSuitabilityScore,
+  parsePantryText,
+} from '../utils/recipeMatching';
 
 type AppState = {
   user: AppUser | null;
@@ -38,6 +47,7 @@ type AppState = {
   pantryText: string;
   userGoal: UserGoal;
   recipeLists: Record<FavoriteListType, string[]>;
+  smartBasket: SmartBasketFlowState;
   hasSeenWelcomeOnboarding: boolean;
   needsWelcomeOnboarding: boolean;
   shouldStartGuidedTour: boolean;
@@ -59,6 +69,11 @@ type AppState = {
   addIngredientToCart: (recipe: Recipe, ingredient: Ingredient, alternative?: MarketAlternative) => void;
   addMissingIngredientsToCart: (recipeId: string, pantryText?: string) => void;
   addRecipeToCart: (recipeId: string) => void;
+  createSmartBasketPlan: (input: SmartBasketInput) => SmartBasketPlan[];
+  selectSmartBasketPlan: (planId: string) => void;
+  addSmartBasketItemsToCart: (planId?: string) => void;
+  resetSmartBasketFlow: () => void;
+  completeSmartBasketDemo: () => void;
   incrementCartItem: (itemId: string) => void;
   decrementCartItem: (itemId: string) => void;
   removeCartItem: (itemId: string) => void;
@@ -87,6 +102,57 @@ const createCartItem = (
   quantity: 1,
   selectedAlternative: alternative,
 });
+
+const scaleIngredientForServings = (ingredient: Ingredient, multiplier: number): Ingredient => ({
+  ...ingredient,
+  gram: Math.max(1, Math.round(ingredient.gram * multiplier)),
+  price: Math.max(1, Math.round(ingredient.price * multiplier)),
+});
+
+const createSmartBasketPlanFromRecipe = (
+  recipe: Recipe,
+  input: SmartBasketInput,
+  userGoal: UserGoal,
+): SmartBasketPlan => {
+  const budgetMode =
+    smartBasketBudgetModes.find((mode) => mode.id === input.budgetModeId) ??
+    smartBasketBudgetModes[1];
+  const match = getRecipeMatch(recipe, input.ingredients);
+  const multiplier = Math.max(1, input.servings) / Math.max(1, recipe.servings);
+  const scaledMissing = match.missingIngredients.map((ingredient) =>
+    scaleIngredientForServings(ingredient, multiplier),
+  );
+  const estimatedCost = Math.round(getRecipeCost(recipe) * multiplier);
+  const missingTotal = scaledMissing.reduce((sum, ingredient) => sum + ingredient.price, 0);
+  const budgetPenalty = budgetMode.limit && estimatedCost > budgetMode.limit ? 14 : 0;
+  const suitabilityScore = Math.max(
+    42,
+    getRecipeSuitabilityScore(recipe, match.matchPercent, userGoal) - budgetPenalty,
+  );
+
+  return {
+    id: `smart-${recipe.id}`,
+    recipeId: recipe.id,
+    recipeTitle: recipe.title,
+    recipeImage: recipe.imageUrl,
+    description: recipe.description,
+    category: recipe.category,
+    prepTime: recipe.prepTime,
+    difficulty: recipe.difficulty,
+    calories: recipe.calories,
+    servings: input.servings,
+    matchPercent: match.matchPercent,
+    suitabilityScore,
+    estimatedCost,
+    perPersonCost: Math.round(estimatedCost / Math.max(1, input.servings)),
+    missingIngredients: scaledMissing,
+    matchedIngredients: match.matchedIngredients,
+    missingTotal,
+    estimatedCommission: Math.round(missingTotal * demoSmartBasketMarket.commissionRate),
+    budgetModeId: budgetMode.id,
+    budgetLabel: budgetMode.label,
+  };
+};
 
 type PersistedDemoState = Pick<AppState, 'likes' | 'cart' | 'userGoal' | 'recipeLists' | 'pantryText'>;
 
@@ -130,6 +196,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     favorites: ['recipe-kunefe'],
     cookLater: ['recipe-adana', 'recipe-mercimek'],
     cookedBefore: ['recipe-menemen'],
+  },
+  smartBasket: {
+    input: null,
+    plans: [],
   },
   cart: persistedDemoState.cart ?? [
     {
@@ -370,6 +440,136 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     recipe.ingredients.forEach((ingredient) => get().addIngredientToCart(recipe, ingredient));
+  },
+
+  createSmartBasketPlan: (input) => {
+    const cleanIngredients = [...new Set(input.ingredients.map((item) => item.trim()).filter(Boolean))];
+    const cleanInput: SmartBasketInput = {
+      ...input,
+      ingredients: cleanIngredients.length > 0 ? cleanIngredients : parsePantryText(get().pantryText),
+      servings: Math.max(1, input.servings),
+    };
+    const plans = get()
+      .recipes.map((recipe) => createSmartBasketPlanFromRecipe(recipe, cleanInput, get().userGoal))
+      .sort((first, second) => {
+        const firstPreferred = first.recipeId === cleanInput.recipeId ? 1 : 0;
+        const secondPreferred = second.recipeId === cleanInput.recipeId ? 1 : 0;
+
+        if (firstPreferred !== secondPreferred) {
+          return secondPreferred - firstPreferred;
+        }
+
+        if (first.matchPercent !== second.matchPercent) {
+          return second.matchPercent - first.matchPercent;
+        }
+
+        if (first.suitabilityScore !== second.suitabilityScore) {
+          return second.suitabilityScore - first.suitabilityScore;
+        }
+
+        return first.estimatedCost - second.estimatedCost;
+      })
+      .slice(0, 3);
+
+    set({
+      pantryText: cleanInput.ingredients.join(', '),
+      smartBasket: {
+        input: cleanInput,
+        plans,
+        selectedPlanId: plans[0]?.id,
+      },
+    });
+
+    return plans;
+  },
+
+  selectSmartBasketPlan: (planId) => {
+    set((state) => ({
+      smartBasket: {
+        ...state.smartBasket,
+        selectedPlanId: planId,
+      },
+    }));
+  },
+
+  addSmartBasketItemsToCart: (planId) => {
+    const { smartBasket, user } = get();
+    const plan =
+      smartBasket.plans.find((item) => item.id === (planId ?? smartBasket.selectedPlanId)) ??
+      smartBasket.plans[0];
+
+    if (!plan) {
+      return;
+    }
+
+    const items: CartItem[] = plan.missingIngredients.map((ingredient) => ({
+      id: `smartbasket_${plan.id}_${ingredient.id}`,
+      recipeId: plan.recipeId,
+      recipeTitle: plan.recipeTitle,
+      ingredientId: ingredient.id,
+      name: ingredient.name,
+      gram: ingredient.gram,
+      price: ingredient.price,
+      quantity: 1,
+      source: 'smartBasket',
+      sourceLabel: 'Akıllı Sepet',
+      marketName: demoSmartBasketMarket.name,
+      deliveryEstimate: demoSmartBasketMarket.deliveryEstimate,
+      commissionEstimate: plan.estimatedCommission,
+      averageBasket: demoSmartBasketMarket.averageBasket,
+      conversionRate: demoSmartBasketMarket.conversionRate,
+    }));
+
+    set((state) => {
+      const cart = [...state.cart];
+
+      items.forEach((item) => {
+        const existingIndex = cart.findIndex((cartItem) => cartItem.id === item.id);
+
+        if (existingIndex >= 0) {
+          cart[existingIndex] = {
+            ...cart[existingIndex],
+            quantity: cart[existingIndex].quantity + 1,
+          };
+          return;
+        }
+
+        cart.push(item);
+      });
+
+      return {
+        cart,
+        smartBasket: {
+          ...state.smartBasket,
+          selectedPlanId: plan.id,
+          completedPlanId: plan.id,
+          lastAddedAt: new Date().toISOString(),
+        },
+      };
+    });
+
+    items.forEach((item) => {
+      void saveCartItem(user?.id ?? 'demo-user', item);
+    });
+  },
+
+  resetSmartBasketFlow: () => {
+    set({
+      smartBasket: {
+        input: null,
+        plans: [],
+      },
+    });
+  },
+
+  completeSmartBasketDemo: () => {
+    set((state) => ({
+      smartBasket: {
+        ...state.smartBasket,
+        completedPlanId: state.smartBasket.selectedPlanId,
+        lastAddedAt: new Date().toISOString(),
+      },
+    }));
   },
 
   incrementCartItem: (itemId) => {

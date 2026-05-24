@@ -73,6 +73,10 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     Alert.alert('Eksikler sepette', `${recipe.title} için eksik ürünler sepete eklendi.`);
   };
 
+  const handleSmartBasket = () => {
+    navigation.navigate('SmartBasket', { recipeId: recipe.id });
+  };
+
   const handleMadeRecipe = () => {
     toggleRecipeList('cookedBefore', recipe.id);
     setMadeFeedback('Eline sağlık! Bu tarifi mutfak geçmişine ekledik. İlk Tarif rozeti güncellendi.');
@@ -212,6 +216,19 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
           </View>
 
           <MissingIngredientsBox ingredients={match.missingIngredients} onAddMissing={handleAddMissing} />
+
+          <TouchableOpacity onPress={handleSmartBasket} activeOpacity={0.86} style={styles.smartBasketButton}>
+            <View style={styles.smartBasketButtonIcon}>
+              <Ionicons name="sparkles" size={18} color={theme.colors.primary} />
+            </View>
+            <View style={styles.smartBasketButtonCopy}>
+              <Text style={styles.smartBasketButtonTitle}>Eksikleri Akıllı Sepet'e aktar</Text>
+              <Text style={styles.smartBasketButtonText}>
+                Bu tarifi kişi sayısı ve bütçeyle market sepetine dönüştür.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
 
           <View style={styles.rowHeader}>
             <Text style={styles.sectionTitle}>Malzemeler</Text>
@@ -525,6 +542,41 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 13,
     fontWeight: '900',
+  },
+  smartBasketButton: {
+    marginTop: 14,
+    minHeight: 74,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  smartBasketButtonIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smartBasketButtonCopy: {
+    flex: 1,
+  },
+  smartBasketButtonTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  smartBasketButtonText: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
   },
   matchEmpty: {
     color: theme.colors.muted,

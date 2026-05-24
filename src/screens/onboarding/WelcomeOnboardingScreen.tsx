@@ -107,7 +107,7 @@ export function WelcomeOnboardingScreen() {
       >
         <View style={styles.container}>
           <Animated.View style={[styles.logoWrap, { opacity: logoAnim, transform: [{ scale: logoScale }] }]}>
-            <BrandLogo size={132} />
+            <BrandLogo size={154} />
           </Animated.View>
 
           <Animated.View

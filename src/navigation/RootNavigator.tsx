@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAppStore } from '../store/useAppStore';
 import { RecipeDetailScreen } from '../screens/main/RecipeDetailScreen';
+import { SmartBasketScreen } from '../screens/main/SmartBasketScreen';
 import { WelcomeOnboardingScreen } from '../screens/onboarding/WelcomeOnboardingScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabs } from './MainTabs';
@@ -23,6 +24,7 @@ export function RootNavigator() {
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
+          <Stack.Screen name="SmartBasket" component={SmartBasketScreen} />
         </>
       )}
     </Stack.Navigator>

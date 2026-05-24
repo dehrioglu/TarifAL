@@ -15,6 +15,11 @@ export function CartItemCard({ item, onIncrement, onDecrement, onRemove }: CartI
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
+        {item.source === 'smartBasket' ? (
+          <View style={styles.sourceBadge}>
+            <Text style={styles.sourceBadgeText}>Akıllı Sepet'ten aktarıldı</Text>
+          </View>
+        ) : null}
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.recipe}>Tarif: {item.recipeTitle}</Text>
         <Text style={styles.meta}>
@@ -54,6 +59,19 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     gap: 3,
+  },
+  sourceBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 2,
+  },
+  sourceBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 9,
+    fontWeight: '900',
   },
   name: {
     color: theme.colors.text,

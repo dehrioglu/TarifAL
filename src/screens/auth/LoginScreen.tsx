@@ -29,9 +29,8 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.hero}>
-        <BrandLogo size={132} />
-        <Text style={styles.logoText}>TarifAL</Text>
-        <Text style={styles.subtitle}>Lezzetli tarifleri keşfet, paylaş ve sipariş ver</Text>
+        <BrandLogo size={164} />
+        <Text style={styles.subtitle}>Lezzeti sizden, tarifi bizden</Text>
       </View>
 
       <View style={styles.card}>
@@ -80,12 +79,6 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     marginBottom: 28,
-  },
-  logoText: {
-    marginTop: 4,
-    color: theme.colors.primary,
-    fontSize: 28,
-    fontWeight: '900',
   },
   subtitle: {
     marginTop: 6,

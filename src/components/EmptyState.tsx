@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
+import { BrandLogo } from './BrandLogo';
 
 type EmptyStateProps = {
   icon?: ComponentProps<typeof Ionicons>['name'];
@@ -18,6 +19,7 @@ export function EmptyState({ icon = 'sparkles-outline', title, text }: EmptyStat
       </View>
       <Text style={styles.title}>{title}</Text>
       {text ? <Text style={styles.text}>{text}</Text> : null}
+      <BrandLogo size={42} style={styles.brandLogo} />
     </View>
   );
 }
@@ -55,5 +57,9 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  brandLogo: {
+    marginTop: 14,
+    opacity: 0.72,
   },
 });

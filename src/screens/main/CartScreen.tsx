@@ -5,8 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '../../components/AppButton';
 import { CartItemCard } from '../../components/CartItemCard';
 import { EmptyState } from '../../components/EmptyState';
+import { InvestorConversionStrip } from '../../components/InvestorConversionStrip';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
+import { demoSmartBasketMarket } from '../../data/demoSmartBasket';
 import { useAppStore } from '../../store/useAppStore';
 
 export function CartScreen() {
@@ -26,6 +28,16 @@ export function CartScreen() {
   const deliveryFee = cart.length > 0 ? 29 : 0;
   const grandTotal = total + deliveryFee;
   const recipeCount = useMemo(() => new Set(cart.map((item) => item.recipeId)).size, [cart]);
+  const smartBasketItems = useMemo(
+    () => cart.filter((item) => item.source === 'smartBasket'),
+    [cart],
+  );
+  const smartBasketTotal = smartBasketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const hasSmartBasketItems = smartBasketItems.length > 0;
+  const estimatedCommission = Math.max(
+    18,
+    Math.round(smartBasketTotal * demoSmartBasketMarket.commissionRate),
+  );
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -103,6 +115,37 @@ export function CartScreen() {
           <Text style={styles.transformButtonText}>Alışverişe Dönüştür</Text>
         </TouchableOpacity>
       </View>
+
+      {hasSmartBasketItems ? (
+        <View style={styles.smartBasketCard}>
+          <View style={styles.smartBasketHeader}>
+            <View style={styles.smartBasketIcon}>
+              <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.smartBasketCopy}>
+              <Text style={styles.smartBasketTitle}>Akıllı Sepet'ten aktarıldı</Text>
+              <Text style={styles.smartBasketSubtitle}>
+                {smartBasketItems.length} ürün {demoSmartBasketMarket.name} eşleşmesiyle market sepetine dönüştü.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.smartBasketStats}>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>₺{smartBasketTotal.toFixed(0)}</Text>
+              <Text style={styles.smartBasketLabel}>Ürün toplamı</Text>
+            </View>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>₺{estimatedCommission}</Text>
+              <Text style={styles.smartBasketLabel}>Tahmini komisyon</Text>
+            </View>
+            <View style={styles.smartBasketStat}>
+              <Text style={styles.smartBasketValue}>{demoSmartBasketMarket.deliveryEstimate}</Text>
+              <Text style={styles.smartBasketLabel}>Teslimat</Text>
+            </View>
+          </View>
+          <InvestorConversionStrip compact />
+        </View>
+      ) : null}
 
       <View style={styles.list}>
         {cart.length === 0 ? (
@@ -296,6 +339,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
+  },
+  smartBasketCard: {
+    marginTop: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.05,
+  },
+  smartBasketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  smartBasketIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smartBasketCopy: {
+    flex: 1,
+  },
+  smartBasketTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  smartBasketSubtitle: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  smartBasketStats: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  smartBasketStat: {
+    flex: 1,
+    minHeight: 66,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primarySoft,
+    padding: 10,
+    justifyContent: 'center',
+  },
+  smartBasketValue: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  smartBasketLabel: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 10,
+    fontWeight: '800',
   },
   list: {
     marginTop: 20,
