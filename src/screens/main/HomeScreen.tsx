@@ -7,6 +7,7 @@ import { AiAnalysisModal } from '../../components/AiAnalysisModal';
 import { AiChefAssistantCard } from '../../components/AiChefAssistantCard';
 import { BrandLogo } from '../../components/BrandLogo';
 import { BudgetAssistantCard } from '../../components/BudgetAssistantCard';
+import { CommercialIntentCard } from '../../components/CommercialIntentCard';
 import { DailyMealPlan } from '../../components/DailyMealPlan';
 import { EmptyState } from '../../components/EmptyState';
 import { FavoriteRecipesSection } from '../../components/FavoriteRecipesSection';
@@ -177,6 +178,20 @@ export function HomeScreen() {
 
   const openSmartBasket = () => {
     navigation.getParent()?.navigate('SmartBasket');
+  };
+
+  const openReadyMealOrder = () => {
+    const recipeId =
+      recipes.find((recipe) => recipe.id === 'recipe-tavuklu-makarna')?.id ??
+      recipes.find((recipe) => recipe.category === 'Ana Yemek')?.id ??
+      recipes[0]?.id;
+
+    if (!recipeId) {
+      showToast('Hazır yemek için önce bir tarif gerekli.', 'warning');
+      return;
+    }
+
+    navigation.getParent()?.navigate('RecipeDetail', { recipeId, purchaseMode: 'restaurant' });
   };
 
   const openPantryVision = () => {
@@ -463,6 +478,11 @@ export function HomeScreen() {
           onOpenVision={openPantryVision}
           onOpenToday={() => setActiveSection('today')}
           onOpenPantry={() => setActiveSection('pantry')}
+        />
+        <CommercialIntentCard
+          onOpenPantry={() => setActiveSection('pantry')}
+          onOpenSmartBasket={openSmartBasket}
+          onOpenRestaurant={openReadyMealOrder}
         />
         <InvestorDemoStartCard onPress={openInvestorDemo} />
       </View>

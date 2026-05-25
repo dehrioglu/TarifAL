@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { demoFamilyAccount } from '../data/demoFamily';
+import { mockSocialComments, mockSocialRecipes } from '../data/mockSocial';
 import { demoSmartBasketMarket, smartBasketBudgetModes } from '../data/demoSmartBasket';
 import { demoRecipes } from '../data/demoRecipes';
 import { onboardingStorage } from '../onboarding/onboardingStorage';
@@ -28,6 +29,11 @@ import {
   Order,
   PlaceOrderOptions,
   Recipe,
+  RestaurantCartItem,
+  RestaurantOption,
+  SocialComment,
+  SocialRecipePost,
+  SocialPostStats,
   SmartBasketFlowState,
   SmartBasketInput,
   SmartBasketPlan,
@@ -46,11 +52,18 @@ type AppState = {
   recipes: Recipe[];
   likes: Record<string, boolean>;
   cart: CartItem[];
+  restaurantCart: RestaurantCartItem[];
   orders: Order[];
   dataLoading: boolean;
   pantryText: string;
   userGoal: UserGoal;
   recipeLists: Record<FavoriteListType, string[]>;
+  socialLikes: Record<string, boolean>;
+  socialSaves: Record<string, boolean>;
+  followedUsers: Record<string, boolean>;
+  socialComments: Record<string, SocialComment[]>;
+  socialPostStats: Record<string, SocialPostStats>;
+  socialPosts: SocialRecipePost[];
   familyAccount: FamilyAccountState;
   smartBasket: SmartBasketFlowState;
   hasSeenWelcomeOnboarding: boolean;
@@ -71,11 +84,16 @@ type AppState = {
   setPantryText: (value: string) => void;
   setUserGoal: (goal: UserGoal) => void;
   toggleRecipeList: (list: FavoriteListType, recipeId: string) => void;
+  toggleSocialLike: (postId: string) => void;
+  toggleSocialSave: (postId: string) => void;
+  toggleFollowUser: (userId: string) => void;
+  addSocialComment: (postId: string, text: string) => void;
   addFamilyShoppingItem: (item: Omit<FamilyShoppingItem, 'id' | 'checked'>) => void;
   toggleFamilyShoppingItem: (itemId: string) => void;
   removeFamilyShoppingItem: (itemId: string) => void;
   addFamilyListToCart: () => void;
   addIngredientToCart: (recipe: Recipe, ingredient: Ingredient, alternative?: MarketAlternative) => void;
+  addRestaurantMealToCart: (recipe: Recipe, restaurant: RestaurantOption) => void;
   addMissingIngredientsToCart: (recipeId: string, pantryText?: string) => void;
   addRecipeToCart: (recipeId: string) => void;
   createSmartBasketPlan: (input: SmartBasketInput) => SmartBasketPlan[];
@@ -87,6 +105,10 @@ type AppState = {
   decrementCartItem: (itemId: string) => void;
   removeCartItem: (itemId: string) => void;
   clearCart: () => void;
+  incrementRestaurantItem: (itemId: string) => void;
+  decrementRestaurantItem: (itemId: string) => void;
+  removeRestaurantItem: (itemId: string) => void;
+  clearRestaurantCart: () => void;
   placeOrder: (address: string, options?: PlaceOrderOptions) => Promise<Order>;
   addRecipe: (payload: NewRecipePayload) => Recipe;
   suggestRecipes: (pantryText: string) => AiSuggestion[];
@@ -95,6 +117,38 @@ type AppState = {
 const initialLikes = {
   'recipe-kunefe': true,
 } satisfies Record<string, boolean>;
+
+const initialSocialPostStats = mockSocialRecipes.reduce<Record<string, SocialPostStats>>(
+  (acc, post) => {
+    acc[post.id] = {
+      likes: post.likes,
+      commentsCount: post.commentsCount,
+      saves: post.saves,
+    };
+
+    return acc;
+  },
+  {},
+);
+
+const mergeSocialPosts = (persistedPosts?: SocialRecipePost[]) => {
+  const postMap = new Map<string, SocialRecipePost>();
+
+  mockSocialRecipes.forEach((post) => postMap.set(post.id, post));
+  persistedPosts?.forEach((post) => postMap.set(post.id, post));
+
+  return Array.from(postMap.values());
+};
+
+const mergeSocialComments = (persistedComments?: Record<string, SocialComment[]>) => ({
+  ...mockSocialComments,
+  ...(persistedComments ?? {}),
+});
+
+const mergeSocialPostStats = (persistedStats?: Record<string, SocialPostStats>) => ({
+  ...initialSocialPostStats,
+  ...(persistedStats ?? {}),
+});
 
 const createCartItem = (
   recipe: Recipe,
@@ -165,7 +219,20 @@ const createSmartBasketPlanFromRecipe = (
 
 type PersistedDemoState = Pick<
   AppState,
-  'likes' | 'cart' | 'orders' | 'userGoal' | 'recipeLists' | 'pantryText' | 'familyAccount'
+  | 'likes'
+  | 'cart'
+  | 'restaurantCart'
+  | 'orders'
+  | 'userGoal'
+  | 'recipeLists'
+  | 'socialLikes'
+  | 'socialSaves'
+  | 'followedUsers'
+  | 'socialComments'
+  | 'socialPostStats'
+  | 'socialPosts'
+  | 'pantryText'
+  | 'familyAccount'
 >;
 
 const storageKey = 'tarifal-demo-state';
@@ -209,6 +276,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     cookLater: ['recipe-adana', 'recipe-mercimek'],
     cookedBefore: ['recipe-menemen'],
   },
+  socialLikes: persistedDemoState.socialLikes ?? {
+    'post-mercimek-ayse': true,
+  },
+  socialSaves: persistedDemoState.socialSaves ?? {
+    'post-tavuk-makarna-ogrenci': true,
+  },
+  followedUsers: persistedDemoState.followedUsers ?? {
+    'user-ayse': true,
+    'user-tarifal-bot': true,
+  },
+  socialComments: mergeSocialComments(persistedDemoState.socialComments),
+  socialPostStats: mergeSocialPostStats(persistedDemoState.socialPostStats),
+  socialPosts: mergeSocialPosts(persistedDemoState.socialPosts),
   familyAccount: persistedDemoState.familyAccount ?? demoFamilyAccount,
   smartBasket: {
     input: null,
@@ -226,6 +306,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       quantity: 1,
     },
   ],
+  restaurantCart: persistedDemoState.restaurantCart ?? [],
   orders: persistedDemoState.orders ?? [],
   hasSeenWelcomeOnboarding: false,
   needsWelcomeOnboarding: false,
@@ -414,6 +495,101 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  toggleSocialLike: (postId) => {
+    const liked = !get().socialLikes[postId];
+
+    set((state) => {
+      const currentStats = state.socialPostStats[postId] ?? {
+        likes: 0,
+        commentsCount: state.socialComments[postId]?.length ?? 0,
+        saves: 0,
+      };
+
+      return {
+        socialLikes: { ...state.socialLikes, [postId]: liked },
+        socialPostStats: {
+          ...state.socialPostStats,
+          [postId]: {
+            ...currentStats,
+            likes: Math.max(0, currentStats.likes + (liked ? 1 : -1)),
+          },
+        },
+      };
+    });
+  },
+
+  toggleSocialSave: (postId) => {
+    const saved = !get().socialSaves[postId];
+
+    set((state) => {
+      const currentStats = state.socialPostStats[postId] ?? {
+        likes: 0,
+        commentsCount: state.socialComments[postId]?.length ?? 0,
+        saves: 0,
+      };
+
+      return {
+        socialSaves: { ...state.socialSaves, [postId]: saved },
+        socialPostStats: {
+          ...state.socialPostStats,
+          [postId]: {
+            ...currentStats,
+            saves: Math.max(0, currentStats.saves + (saved ? 1 : -1)),
+          },
+        },
+      };
+    });
+  },
+
+  toggleFollowUser: (userId) => {
+    set((state) => ({
+      followedUsers: {
+        ...state.followedUsers,
+        [userId]: !state.followedUsers[userId],
+      },
+    }));
+  },
+
+  addSocialComment: (postId, text) => {
+    const trimmed = text.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    const comment: SocialComment = {
+      id: `social-comment-${Date.now()}`,
+      recipeId: postId,
+      userId: get().user?.id ?? 'demo-user',
+      text: trimmed,
+      likes: 0,
+      createdAt: 'simdi',
+    };
+
+    set((state) => {
+      const comments = [comment, ...(state.socialComments[postId] ?? [])];
+      const currentStats = state.socialPostStats[postId] ?? {
+        likes: 0,
+        commentsCount: 0,
+        saves: 0,
+      };
+
+      return {
+        socialComments: {
+          ...state.socialComments,
+          [postId]: comments,
+        },
+        socialPostStats: {
+          ...state.socialPostStats,
+          [postId]: {
+            ...currentStats,
+            commentsCount: currentStats.commentsCount + 1,
+          },
+        },
+      };
+    });
+  },
+
   addFamilyShoppingItem: (item) => {
     const newItem: FamilyShoppingItem = {
       ...item,
@@ -537,6 +713,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     void saveCartItem(userId, item);
+  },
+
+  addRestaurantMealToCart: (recipe, restaurant) => {
+    const item: RestaurantCartItem = {
+      id: `restaurant_${recipe.id}_${restaurant.id}`,
+      recipeId: recipe.id,
+      recipeTitle: recipe.title,
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      portionPrice: restaurant.portionPrice,
+      quantity: 1,
+      deliveryFee: restaurant.deliveryFee,
+      deliveryEstimate: restaurant.deliveryEstimate,
+      tags: restaurant.tags,
+      sourceLabel: 'Hazır yemek siparişi',
+      commissionRate: restaurant.commissionRate,
+      commissionEstimate: Math.round(restaurant.portionPrice * restaurant.commissionRate),
+    };
+
+    set((state) => {
+      const existing = state.restaurantCart.find((cartItem) => cartItem.id === item.id);
+      const restaurantCart = existing
+        ? state.restaurantCart.map((cartItem) =>
+            cartItem.id === item.id
+              ? {
+                  ...cartItem,
+                  quantity: cartItem.quantity + 1,
+                  commissionEstimate:
+                    cartItem.commissionEstimate +
+                    Math.round(restaurant.portionPrice * restaurant.commissionRate),
+                }
+              : cartItem,
+          )
+        : [...state.restaurantCart, item];
+
+      return { restaurantCart };
+    });
   },
 
   addMissingIngredientsToCart: (recipeId, pantryText) => {
@@ -718,6 +931,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ cart: [] });
   },
 
+  incrementRestaurantItem: (itemId) => {
+    set((state) => ({
+      restaurantCart: state.restaurantCart.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+              commissionEstimate:
+                item.commissionEstimate + Math.round(item.portionPrice * item.commissionRate),
+            }
+          : item,
+      ),
+    }));
+  },
+
+  decrementRestaurantItem: (itemId) => {
+    set((state) => ({
+      restaurantCart: state.restaurantCart
+        .map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                quantity: Math.max(0, item.quantity - 1),
+                commissionEstimate: Math.max(
+                  0,
+                  item.commissionEstimate - Math.round(item.portionPrice * item.commissionRate),
+                ),
+              }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    }));
+  },
+
+  removeRestaurantItem: (itemId) => {
+    set((state) => ({
+      restaurantCart: state.restaurantCart.filter((item) => item.id !== itemId),
+    }));
+  },
+
+  clearRestaurantCart: () => {
+    set({ restaurantCart: [] });
+  },
+
   placeOrder: async (address, options) => {
     const { cart, user } = get();
 
@@ -762,6 +1019,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addRecipe: (payload) => {
     const user = get().user;
+    const estimatedPrice = payload.ingredients.reduce((sum, ingredient) => sum + ingredient.price, 0);
     const recipe: Recipe = {
       id: `recipe-${Date.now()}`,
       title: payload.title,
@@ -781,13 +1039,60 @@ export const useAppStore = create<AppState>((set, get) => ({
       difficulty: payload.difficulty,
       tags: payload.tags,
       goalTypes: ['pratik_yemek'],
-      estimatedPrice: payload.ingredients.reduce((sum, ingredient) => sum + ingredient.price, 0),
+      estimatedPrice,
       createdBy: user?.id ?? 'demo-user',
       createdByName: user?.name ?? 'TarifAL',
       createdAt: new Date().toISOString(),
     };
+    const socialPost: SocialRecipePost = {
+      id: `post-${recipe.id}`,
+      recipeId: recipe.id,
+      authorId: user?.id ?? 'demo-user',
+      title: recipe.title,
+      description: recipe.description,
+      imageUrl: recipe.imageUrl,
+      category: recipe.category,
+      tags: recipe.tags,
+      prepTime: Math.max(5, Math.round(recipe.prepTime * 0.35)),
+      cookTime: Math.max(0, recipe.prepTime - Math.max(5, Math.round(recipe.prepTime * 0.35))),
+      totalTime: recipe.prepTime,
+      difficulty: recipe.difficulty,
+      servings: recipe.servings,
+      likes: 0,
+      commentsCount: 0,
+      saves: 0,
+      marketBasketPrice: payload.socialMarketReady === false ? 0 : estimatedPrice,
+      restaurantOrderAvailable: Boolean(payload.socialRestaurantReady),
+      restaurantStartPrice: payload.socialRestaurantReady
+        ? Math.max(89, Math.round(estimatedPrice * 1.35))
+        : undefined,
+      commercialBadges: [
+        payload.socialMarketReady === false ? 'Evde Yap' : 'Market sepetine uygun',
+        payload.socialRestaurantReady ? 'Hazir siparis uygun' : 'Topluluk tarifi',
+      ],
+      nutrition: {
+        calories: recipe.calories,
+      },
+      createdAt: 'simdi',
+      tip: 'Bu tarif topluluk tarafindan paylasildi; marka ve sepet secenekleri demo modunda gosterilir.',
+    };
 
-    set((state) => ({ recipes: [recipe, ...state.recipes] }));
+    set((state) => ({
+      recipes: [recipe, ...state.recipes],
+      socialPosts: [socialPost, ...state.socialPosts],
+      socialComments: {
+        ...state.socialComments,
+        [socialPost.id]: [],
+      },
+      socialPostStats: {
+        ...state.socialPostStats,
+        [socialPost.id]: {
+          likes: 0,
+          commentsCount: 0,
+          saves: 0,
+        },
+      },
+    }));
     void saveRecipe(recipe);
 
     return recipe;
@@ -828,9 +1133,16 @@ useAppStore.subscribe((state) =>
   writePersistedDemoState({
     likes: state.likes,
     cart: state.cart,
+    restaurantCart: state.restaurantCart,
     orders: state.orders,
     userGoal: state.userGoal,
     recipeLists: state.recipeLists,
+    socialLikes: state.socialLikes,
+    socialSaves: state.socialSaves,
+    followedUsers: state.followedUsers,
+    socialComments: state.socialComments,
+    socialPostStats: state.socialPostStats,
+    socialPosts: state.socialPosts,
     pantryText: state.pantryText,
     familyAccount: state.familyAccount,
   }),

@@ -11,13 +11,17 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 const tabMeta: Record<string, { label: string; icon: IconName; activeIcon: IconName }> = {
   Home: { label: 'Ana Sayfa', icon: 'home-outline', activeIcon: 'home' },
   Explore: { label: 'Keşfet', icon: 'search-outline', activeIcon: 'search' },
-  AddRecipe: { label: '', icon: 'add', activeIcon: 'add' },
+  AddRecipe: { label: 'Paylaş', icon: 'add', activeIcon: 'add' },
   Cart: { label: 'Sepet', icon: 'cart-outline', activeIcon: 'cart' },
   Profile: { label: 'Profil', icon: 'person-outline', activeIcon: 'person' },
 };
 
 export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const cartCount = useAppStore((store) => store.cart.reduce((sum, item) => sum + item.quantity, 0));
+  const cartCount = useAppStore(
+    (store) =>
+      store.cart.reduce((sum, item) => sum + item.quantity, 0) +
+      store.restaurantCart.reduce((sum, item) => sum + item.quantity, 0),
+  );
 
   return (
     <View style={styles.wrap}>
@@ -26,7 +30,7 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         const meta = tabMeta[route.name];
         const options = descriptors[route.key].options;
         const accessibilityLabel =
-          options.tabBarAccessibilityLabel ?? (route.name === 'AddRecipe' ? 'Tarif ekle' : meta.label);
+          options.tabBarAccessibilityLabel ?? (route.name === 'AddRecipe' ? 'Tarif paylaş' : meta.label);
 
         const onPress = () => {
           const event = navigation.emit({

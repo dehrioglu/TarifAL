@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAppStore } from '../store/useAppStore';
+import { ActivityScreen } from '../screens/main/ActivityScreen';
 import { AiChefChatScreen } from '../screens/main/AiChefChatScreen';
 import { FamilyAccountScreen } from '../screens/main/FamilyAccountScreen';
 import { MarketCheckoutScreen } from '../screens/main/MarketCheckoutScreen';
@@ -8,6 +9,7 @@ import { PantryVisionScreen } from '../screens/main/PantryVisionScreen';
 import { RecipeDetailScreen } from '../screens/main/RecipeDetailScreen';
 import { SmartBasketScreen } from '../screens/main/SmartBasketScreen';
 import { InvestorDemoFlowScreen } from '../screens/main/InvestorDemoFlowScreen';
+import { SocialProfileScreen } from '../screens/main/SocialProfileScreen';
 import { WelcomeOnboardingScreen } from '../screens/onboarding/WelcomeOnboardingScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabs } from './MainTabs';
@@ -35,6 +37,8 @@ export function RootNavigator() {
           <Stack.Screen name="MarketCheckout" component={MarketCheckoutScreen} />
           <Stack.Screen name="AiChefChat" component={AiChefChatScreen} />
           <Stack.Screen name="InvestorDemo" component={InvestorDemoFlowScreen} />
+          <Stack.Screen name="SocialProfile" component={SocialProfileScreen} />
+          <Stack.Screen name="Activity" component={ActivityScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -38,11 +38,28 @@ export type MarketAlternative = {
   note: string;
 };
 
+export type IngredientBrandQuality = 'economic' | 'standard' | 'premium';
+
+export type IngredientBrandOption = {
+  id: string;
+  name: string;
+  price: number;
+  size: string;
+  quality: IngredientBrandQuality;
+  sponsored?: boolean;
+  campaign?: string;
+};
+
 export type Ingredient = {
   id: string;
   name: string;
   gram: number;
   price: number;
+  image?: string;
+  category?: string;
+  defaultUnit?: string;
+  quantity?: number;
+  brands?: IngredientBrandOption[];
   alternatives?: MarketAlternative[];
 };
 
@@ -109,6 +126,49 @@ export type CartItem = {
   commissionEstimate?: number;
   averageBasket?: number;
   conversionRate?: number;
+};
+
+export type PurchaseMode = 'home' | 'market' | 'restaurant';
+
+export type RestaurantTag =
+  | 'Ev yemeği'
+  | 'Hızlı teslimat'
+  | 'Ekonomik'
+  | 'Premium'
+  | 'Şef önerisi'
+  | 'Kampanyalı'
+  | 'Sponsorlu';
+
+export type RestaurantOption = {
+  id: string;
+  recipeId: string;
+  name: string;
+  rating: number;
+  deliveryEstimate: string;
+  portionPrice: number;
+  minBasket: number;
+  deliveryFee: number;
+  tags: RestaurantTag[];
+  label?: string;
+  sponsored?: boolean;
+  featured?: boolean;
+  commissionRate: number;
+};
+
+export type RestaurantCartItem = {
+  id: string;
+  recipeId: string;
+  recipeTitle: string;
+  restaurantId: string;
+  restaurantName: string;
+  portionPrice: number;
+  quantity: number;
+  deliveryFee: number;
+  deliveryEstimate: string;
+  tags: RestaurantTag[];
+  sourceLabel: string;
+  commissionRate: number;
+  commissionEstimate: number;
 };
 
 export type FamilyMember = {
@@ -303,4 +363,87 @@ export type NewRecipePayload = {
   calories: number;
   difficulty: Difficulty;
   tags: string[];
+  socialMarketReady?: boolean;
+  socialRestaurantReady?: boolean;
+};
+
+export type SocialUser = {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl: string;
+  coverImageUrl: string;
+  bio: string;
+  location: string;
+  followers: number;
+  following: number;
+  recipeCount: number;
+  totalLikes: number;
+  averageRating: number;
+  badges: string[];
+  level: string;
+  isVerified?: boolean;
+  expertiseAreas: string[];
+};
+
+export type SocialRecipePost = {
+  id: string;
+  recipeId: string;
+  authorId: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  category: string;
+  tags: string[];
+  prepTime: number;
+  cookTime: number;
+  totalTime: number;
+  difficulty: Difficulty;
+  servings: number;
+  likes: number;
+  commentsCount: number;
+  saves: number;
+  marketBasketPrice: number;
+  restaurantOrderAvailable: boolean;
+  restaurantStartPrice?: number;
+  commercialBadges: string[];
+  nutrition?: {
+    calories: number;
+    protein?: number;
+  };
+  createdAt: string;
+  tip: string;
+};
+
+export type SocialComment = {
+  id: string;
+  recipeId: string;
+  userId: string;
+  text: string;
+  likes: number;
+  createdAt: string;
+};
+
+export type SocialActivity = {
+  id: string;
+  type: 'like' | 'follow' | 'comment' | 'bot' | 'save' | 'campaign';
+  actorId: string;
+  targetId?: string;
+  text: string;
+  createdAt: string;
+};
+
+export type SocialCollection = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  recipeIds: string[];
+  coverImageUrl: string;
+};
+
+export type SocialPostStats = {
+  likes: number;
+  commentsCount: number;
+  saves: number;
 };

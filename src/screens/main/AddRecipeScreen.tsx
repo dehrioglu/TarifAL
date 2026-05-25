@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -43,6 +43,8 @@ export function AddRecipeScreen() {
   const [calories, setCalories] = useState('320');
   const [difficulty, setDifficulty] = useState<Difficulty>('Kolay');
   const [tags, setTags] = useState('hızlı, ekonomik');
+  const [marketReady, setMarketReady] = useState(true);
+  const [restaurantReady, setRestaurantReady] = useState(false);
   const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
   const [steps, setSteps] = useState<RecipeStep[]>([emptyStep()]);
   const [submitting, setSubmitting] = useState(false);
@@ -112,6 +114,8 @@ export function AddRecipeScreen() {
     setCalories('320');
     setDifficulty('Kolay');
     setTags('hızlı, ekonomik');
+    setMarketReady(true);
+    setRestaurantReady(false);
     setIngredients([emptyIngredient()]);
     setSteps([emptyStep()]);
   };
@@ -125,6 +129,8 @@ export function AddRecipeScreen() {
     setSubmitting(true);
 
     try {
+      const wasMarketReady = marketReady;
+      const wasRestaurantReady = restaurantReady;
       const uploadedImage = imageUri ? await uploadRecipeImage(imageUri, user?.id ?? 'demo-user') : undefined;
       const recipe = addRecipe({
         title: title.trim(),
@@ -139,6 +145,8 @@ export function AddRecipeScreen() {
           .split(',')
           .map((tag) => tag.trim())
           .filter(Boolean),
+        socialMarketReady: wasMarketReady,
+        socialRestaurantReady: wasRestaurantReady,
         ingredients: ingredients
           .filter((item) => item.name.trim() && item.gram > 0 && item.price > 0)
           .map((item) => ({ ...item, name: item.name.trim() })),
@@ -150,9 +158,11 @@ export function AddRecipeScreen() {
       resetForm();
       showDemoModal({
         title: 'Tarif paylaşıldı',
-        message: `${recipe.title} topluluğa eklendi. Demo modunda tarif listesine yerel olarak eklendi.`,
-        primaryLabel: 'Ana Sayfaya Dön',
-        onPrimary: () => navigation.navigate('Home'),
+        message: `${recipe.title} topluluk akışına eklendi. ${wasMarketReady ? 'Market sepetine uygun' : 'Evde yap'} ${wasRestaurantReady ? 've hazır yemek siparişine uygun' : ''} olarak demo modunda kaydedildi.`,
+        primaryLabel: 'Keşfet Akışına Git',
+        secondaryLabel: 'Ana Sayfa',
+        onPrimary: () => navigation.navigate('Explore'),
+        onSecondary: () => navigation.navigate('Home'),
       });
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Paylaşım tamamlanamadı, tekrar deneyin.', 'warning');
@@ -171,8 +181,8 @@ export function AddRecipeScreen() {
 
   return (
     <Screen scroll contentStyle={styles.content}>
-      <Text style={styles.title}>Tarif Ekle</Text>
-      <Text style={styles.subtitle}>Yemeğini topluluğa tanıt</Text>
+      <Text style={styles.title}>Tarif Paylaş</Text>
+      <Text style={styles.subtitle}>Yemeğini topluluğa, sepete ve sipariş akışına hazırla</Text>
 
       <TouchableOpacity activeOpacity={0.86} onPress={pickImage} style={styles.uploadBox}>
         {imageUri ? (
@@ -269,6 +279,44 @@ export function AddRecipeScreen() {
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Etiketler</Text>
         <InputField value={tags} onChangeText={setTags} placeholder="hızlı, fit, ekonomik" />
+      </View>
+
+      <View style={styles.socialCommerceCard}>
+        <View style={styles.socialCommerceHeader}>
+          <View style={styles.socialCommerceCopy}>
+            <Text style={styles.socialCommerceTitle}>Sosyal + ticari uygunluk</Text>
+            <Text style={styles.socialCommerceText}>
+              Tarif paylaşıldığında market sepeti veya hazır yemek aksiyonlarıyla görünsün.
+            </Text>
+          </View>
+          <View style={styles.socialCommerceIcon}>
+            <Ionicons name="sparkles" size={18} color={theme.colors.primary} />
+          </View>
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchCopy}>
+            <Text style={styles.switchTitle}>Market sepetine uygun</Text>
+            <Text style={styles.switchText}>Malzemeleri sepete dönüştür.</Text>
+          </View>
+          <Switch
+            value={marketReady}
+            onValueChange={setMarketReady}
+            thumbColor="#FFFFFF"
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+          />
+        </View>
+        <View style={styles.switchRow}>
+          <View style={styles.switchCopy}>
+            <Text style={styles.switchTitle}>Hazır yemek siparişine uygun</Text>
+            <Text style={styles.switchText}>Restoran seçeneği için demo etiketi ekle.</Text>
+          </View>
+          <Switch
+            value={restaurantReady}
+            onValueChange={setRestaurantReady}
+            thumbColor="#FFFFFF"
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+          />
+        </View>
       </View>
 
       <View style={styles.sectionLine}>
@@ -462,6 +510,65 @@ const styles = StyleSheet.create({
   },
   difficultyTextActive: {
     color: '#FFFFFF',
+  },
+  socialCommerceCard: {
+    marginTop: 22,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 14,
+    gap: 12,
+  },
+  socialCommerceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  socialCommerceCopy: {
+    flex: 1,
+  },
+  socialCommerceTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  socialCommerceText: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  socialCommerceIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchRow: {
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  switchCopy: {
+    flex: 1,
+  },
+  switchTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  switchText: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
   },
   sectionLine: {
     marginTop: 30,

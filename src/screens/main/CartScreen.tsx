@@ -1,34 +1,54 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
 import { CartItemCard } from '../../components/CartItemCard';
+import { DualBasketTabs } from '../../components/DualBasketTabs';
 import { EmptyState } from '../../components/EmptyState';
 import { InvestorConversionStrip } from '../../components/InvestorConversionStrip';
+import { PriceBreakdownCard } from '../../components/PriceBreakdownCard';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
+import { commerceMarketDemo } from '../../data/demoCommerce';
 import { demoSmartBasketMarket } from '../../data/demoSmartBasket';
 import { useFeedback } from '../../feedback/FeedbackProvider';
-import { RootStackParamList } from '../../navigation/types';
+import { MainTabParamList, RootStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 
 export function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { showToast } = useFeedback();
+  const route = useRoute<RouteProp<MainTabParamList, 'Cart'>>();
+  const { showToast, showDemoModal } = useFeedback();
   const cart = useAppStore((store) => store.cart);
+  const restaurantCart = useAppStore((store) => store.restaurantCart);
   const orders = useAppStore((store) => store.orders);
   const incrementCartItem = useAppStore((store) => store.incrementCartItem);
   const decrementCartItem = useAppStore((store) => store.decrementCartItem);
   const removeCartItem = useAppStore((store) => store.removeCartItem);
   const clearCart = useAppStore((store) => store.clearCart);
+  const incrementRestaurantItem = useAppStore((store) => store.incrementRestaurantItem);
+  const decrementRestaurantItem = useAppStore((store) => store.decrementRestaurantItem);
+  const removeRestaurantItem = useAppStore((store) => store.removeRestaurantItem);
+  const clearRestaurantCart = useAppStore((store) => store.clearRestaurantCart);
+  const [activeBasket, setActiveBasket] = useState<'market' | 'restaurant'>('market');
   const [address, setAddress] = useState('Saran Holding');
   const [feedback, setFeedback] = useState('');
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const restaurantCount = restaurantCart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCount = count + restaurantCount;
+  const restaurantSubtotal = restaurantCart.reduce(
+    (sum, item) => sum + item.portionPrice * item.quantity,
+    0,
+  );
+  const restaurantDeliveryFee = restaurantCart.length > 0
+    ? Math.max(...restaurantCart.map((item) => item.deliveryFee))
+    : 0;
+  const restaurantCommission = restaurantCart.reduce((sum, item) => sum + item.commissionEstimate, 0);
   const deliveryFee = cart.length > 0 ? 29 : 0;
   const grandTotal = total + deliveryFee;
   const recipeCount = useMemo(() => new Set(cart.map((item) => item.recipeId)).size, [cart]);
@@ -49,6 +69,12 @@ export function CartScreen() {
     Math.round(smartBasketTotal * demoSmartBasketMarket.commissionRate),
   );
 
+  useEffect(() => {
+    if (route.params?.activeBasket) {
+      setActiveBasket(route.params.activeBasket);
+    }
+  }, [route.params?.activeBasket]);
+
   const handleConfirm = () => {
     if (cart.length === 0) {
       setFeedback('Önce bir tariften eksik malzemeleri sepete ekle.');
@@ -60,6 +86,13 @@ export function CartScreen() {
   };
 
   const handleClearCart = () => {
+    if (activeBasket === 'restaurant') {
+      clearRestaurantCart();
+      setFeedback('Restoran sepeti boşaltıldı.');
+      showToast('Restoran sepeti boşaltıldı.', 'info');
+      return;
+    }
+
     clearCart();
     setFeedback('Sepet boşaltıldı.');
     showToast('Sepet boşaltıldı.', 'info');
@@ -75,19 +108,139 @@ export function CartScreen() {
     navigation.navigate('MarketCheckout');
   };
 
+  const handleRestaurantConfirm = () => {
+    if (restaurantCart.length === 0) {
+      showToast('Restoran sepetin boş. Hazır yemek seçeneğinden ürün ekleyebilirsin.', 'warning');
+      return;
+    }
+
+    showDemoModal({
+      title: 'Restoran siparişi simüle edildi',
+      message:
+        'Bu işlem gerçek restorana iletilmedi. TarifAL burada hazır yemek siparişinden restoran komisyonu modelini demo olarak gösterir.',
+      primaryLabel: 'Ana Sayfaya Dön',
+      secondaryLabel: 'Sepette Kal',
+      onPrimary: () => navigation.navigate('MainTabs', { screen: 'Home' }),
+    });
+  };
+
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Sepetim</Text>
-          <Text style={styles.subtitle}>{count} kalem</Text>
+          <Text style={styles.subtitle}>{totalCount} kalem</Text>
         </View>
-        {cart.length > 0 ? (
+        {(activeBasket === 'market' ? cart.length : restaurantCart.length) > 0 ? (
           <TouchableOpacity onPress={handleClearCart} activeOpacity={0.85} style={styles.clearButton}>
-            <Text style={styles.clearButtonText}>Sepeti Boşalt</Text>
+            <Text style={styles.clearButtonText}>
+              {activeBasket === 'market' ? 'Sepeti Boşalt' : 'Restoranı Boşalt'}
+            </Text>
           </TouchableOpacity>
         ) : null}
       </View>
+
+      <DualBasketTabs
+        active={activeBasket}
+        marketCount={count}
+        restaurantCount={restaurantCount}
+        onChange={setActiveBasket}
+      />
+
+      {activeBasket === 'restaurant' ? (
+        <>
+          <View style={styles.restaurantCard}>
+            <View style={styles.restaurantHeader}>
+              <View style={styles.restaurantIcon}>
+                <Ionicons name="restaurant-outline" size={22} color={theme.colors.primary} />
+              </View>
+              <View style={styles.restaurantCopy}>
+                <Text style={styles.restaurantTitle}>Hazır yemek sepeti</Text>
+                <Text style={styles.restaurantSubtitle}>
+                  Restoran siparişi ayrı tutulur; market malzemeleriyle karışmaz.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.conversionStats}>
+              <View style={styles.conversionStat}>
+                <Text style={styles.statValue}>₺{restaurantSubtotal.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Restoran sepeti</Text>
+              </View>
+              <View style={styles.conversionStat}>
+                <Text style={styles.statValue}>₺{restaurantCommission.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Komisyon sim.</Text>
+              </View>
+              <View style={styles.conversionStat}>
+                <Text style={styles.statValue}>%{Math.round(commerceMarketDemo.conversionRate * 100)}</Text>
+                <Text style={styles.statLabel}>Dönüşüm</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.list}>
+            {restaurantCart.length === 0 ? (
+              <EmptyState
+                icon="restaurant-outline"
+                title="Restoran sepeti boş"
+                text="Tarif detayında Hazır Sipariş Et seçeneğinden restoran ekleyebilirsin."
+              />
+            ) : (
+              restaurantCart.map((item) => (
+                <View key={item.id} style={styles.restaurantItem}>
+                  <View style={styles.restaurantItemTop}>
+                    <View style={styles.restaurantItemIcon}>
+                      <Ionicons name="fast-food-outline" size={19} color={theme.colors.primary} />
+                    </View>
+                    <View style={styles.restaurantItemCopy}>
+                      <Text style={styles.restaurantItemTitle} numberOfLines={1}>{item.recipeTitle}</Text>
+                      <Text style={styles.restaurantItemMeta} numberOfLines={1}>
+                        {item.restaurantName} • {item.deliveryEstimate}
+                      </Text>
+                    </View>
+                    <Text style={styles.restaurantItemPrice}>₺{(item.portionPrice * item.quantity).toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.restaurantItemBottom}>
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity onPress={() => decrementRestaurantItem(item.id)} style={styles.qtyButton}>
+                        <Ionicons name="remove" size={15} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                      <Text style={styles.qtyText}>{item.quantity}</Text>
+                      <TouchableOpacity onPress={() => incrementRestaurantItem(item.id)} style={styles.qtyButton}>
+                        <Ionicons name="add" size={15} color={theme.colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        removeRestaurantItem(item.id);
+                        showToast(`${item.recipeTitle} restoran sepetinden silindi.`, 'info');
+                      }}
+                      style={styles.removeButton}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+                      <Text style={styles.removeText}>Sil</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+
+          <PriceBreakdownCard
+            subtotal={restaurantSubtotal}
+            deliveryFee={restaurantDeliveryFee}
+            commissionEstimate={restaurantCommission}
+            totalLabel="Restoran toplamı"
+          />
+          <AppButton
+            title="Demo Restoran Siparişini Onayla"
+            icon="restaurant"
+            onPress={handleRestaurantConfirm}
+            disabled={restaurantCart.length === 0}
+          />
+          <Text style={styles.mockText}>* Restoran siparişi demo modunda simüle edilir; gerçek sipariş oluşturulmaz.</Text>
+        </>
+      ) : (
+        <>
 
       <View style={styles.conversionCard}>
         <View style={styles.conversionHeader}>
@@ -269,6 +422,8 @@ export function CartScreen() {
           ))
         )}
       </View>
+        </>
+      )}
     </Screen>
   );
 }
@@ -308,6 +463,123 @@ const styles = StyleSheet.create({
   clearButtonText: {
     color: theme.colors.danger,
     fontSize: 12,
+    fontWeight: '900',
+  },
+  restaurantCard: {
+    marginTop: 18,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 16,
+    gap: 14,
+  },
+  restaurantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  restaurantIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restaurantCopy: {
+    flex: 1,
+  },
+  restaurantTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  restaurantSubtitle: {
+    marginTop: 5,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  restaurantItem: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 13,
+    gap: 12,
+  },
+  restaurantItemTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  restaurantItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restaurantItemCopy: {
+    flex: 1,
+  },
+  restaurantItemTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  restaurantItemMeta: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  restaurantItemPrice: {
+    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  restaurantItemBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  qtyControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  qtyButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyText: {
+    minWidth: 18,
+    color: theme.colors.text,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  removeButton: {
+    minHeight: 34,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#FFF5F5',
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  removeText: {
+    color: theme.colors.danger,
+    fontSize: 11,
     fontWeight: '900',
   },
   conversionCard: {
