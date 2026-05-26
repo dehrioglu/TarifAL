@@ -415,6 +415,55 @@ export type SocialRecipePost = {
   tip: string;
 };
 
+export type SocialPostType =
+  | 'recipe'
+  | 'note'
+  | 'basket'
+  | 'restaurant'
+  | 'poll'
+  | 'challenge'
+  | 'tried';
+
+export type SocialPollOption = {
+  id: string;
+  label: string;
+  votes: number;
+};
+
+export type SocialChallengeData = {
+  title: string;
+  description: string;
+  participants: number;
+  reward: string;
+};
+
+export type SocialFeedPost = {
+  id: string;
+  type: SocialPostType;
+  authorId: string;
+  recipeId?: string;
+  title: string;
+  text: string;
+  imageUrl?: string;
+  tags: string[];
+  createdAt: string;
+  likes: number;
+  commentsCount: number;
+  saves: number;
+  shares: number;
+  prepTime?: number;
+  cookTime?: number;
+  totalTime?: number;
+  difficulty?: Difficulty;
+  servings?: number;
+  marketBasketPrice?: number;
+  restaurantOrderAvailable?: boolean;
+  restaurantStartPrice?: number;
+  commercialBadges?: string[];
+  pollOptions?: SocialPollOption[];
+  challengeData?: SocialChallengeData;
+};
+
 export type SocialComment = {
   id: string;
   recipeId: string;
@@ -422,15 +471,23 @@ export type SocialComment = {
   text: string;
   likes: number;
   createdAt: string;
+  liked?: boolean;
+  chefReply?: {
+    userId: string;
+    text: string;
+    createdAt: string;
+  };
 };
 
 export type SocialActivity = {
   id: string;
-  type: 'like' | 'follow' | 'comment' | 'bot' | 'save' | 'campaign';
+  type: 'like' | 'follow' | 'comment' | 'bot' | 'save' | 'campaign' | 'tried' | 'collection' | 'recipe';
   actorId: string;
   targetId?: string;
   text: string;
   createdAt: string;
+  imageUrl?: string;
+  isRead?: boolean;
 };
 
 export type SocialCollection = {
@@ -440,10 +497,42 @@ export type SocialCollection = {
   description: string;
   recipeIds: string[];
   coverImageUrl: string;
+  saves?: number;
+  ownerId?: string;
 };
 
 export type SocialPostStats = {
   likes: number;
   commentsCount: number;
   saves: number;
+};
+
+export type SocialStory = {
+  id: string;
+  authorId: string;
+  recipeId?: string;
+  imageUrl: string;
+  text: string;
+  createdAt: string;
+};
+
+export type SocialNotification = {
+  id: string;
+  type: SocialActivity['type'];
+  actorId: string;
+  targetId?: string;
+  text: string;
+  createdAt: string;
+  isRead: boolean;
+  imageUrl?: string;
+};
+
+export type TriedRecipePost = {
+  id: string;
+  userId: string;
+  recipeId: string;
+  rating: number;
+  comment: string;
+  imageUrl?: string;
+  createdAt: string;
 };

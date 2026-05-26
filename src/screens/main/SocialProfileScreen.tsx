@@ -8,11 +8,12 @@ import { CollectionCard } from '../../components/CollectionCard';
 import { CommentList } from '../../components/CommentList';
 import { FeedRecipeCard } from '../../components/FeedRecipeCard';
 import { FollowButton } from '../../components/FollowButton';
+import { ProfileAchievementCards } from '../../components/ProfileAchievementCards';
 import { UserAvatar } from '../../components/UserAvatar';
 import { theme } from '../../constants/theme';
+import { enhancedSocialCollections } from '../../data/mockCollections';
 import {
   formatFollowerCount,
-  mockSocialCollections,
   mockSocialComments,
   mockSocialUsers,
 } from '../../data/mockSocial';
@@ -22,14 +23,14 @@ import { useAppStore } from '../../store/useAppStore';
 import { SocialRecipePost, SocialUser } from '../../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SocialProfile'>;
-type ProfileTab = 'recipes' | 'saved' | 'collections' | 'comments' | 'about';
+type ProfileTab = 'recipes' | 'notes' | 'collections' | 'liked' | 'about';
 
 const tabs: Array<{ id: ProfileTab; label: string }> = [
   { id: 'recipes', label: 'Tarifler' },
-  { id: 'saved', label: 'Kaydedilenler' },
+  { id: 'notes', label: 'Usta Notları' },
   { id: 'collections', label: 'Koleksiyonlar' },
-  { id: 'comments', label: 'Yorumlar' },
-  { id: 'about', label: 'Hakkinda' },
+  { id: 'liked', label: 'Beğenilenler' },
+  { id: 'about', label: 'Hakkında' },
 ];
 
 export function SocialProfileScreen({ navigation, route }: Props) {
@@ -45,6 +46,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
   const toggleSocialLike = useAppStore((store) => store.toggleSocialLike);
   const toggleSocialSave = useAppStore((store) => store.toggleSocialSave);
   const toggleFollowUser = useAppStore((store) => store.toggleFollowUser);
+  const toggleCommentLike = useAppStore((store) => store.toggleCommentLike);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
   const { showToast, showDemoModal } = useFeedback();
 
@@ -86,6 +88,15 @@ export function SocialProfileScreen({ navigation, route }: Props) {
   const comments = Object.values(socialComments).flat().filter((comment) => comment.userId === user.id);
   const fallbackComments = Object.values(mockSocialComments).flat().filter((comment) => comment.userId === user.id);
   const visibleComments = comments.length > 0 ? comments : fallbackComments;
+  const highlightedPosts = (posts.length > 0 ? posts : socialPosts)
+    .filter((post) => post.difficulty === 'Zor' || post.commercialBadges.some((badge) => badge.toLocaleLowerCase('tr-TR').includes('şef') || badge.toLocaleLowerCase('tr-TR').includes('usta')))
+    .slice(0, 3);
+  const achievements = [
+    user.badges[0] ?? 'TarifAL Şefi',
+    `${formatFollowerCount(user.totalLikes)} beğeni barajını geçti`,
+    user.isVerified ? 'TarifAL Onaylı Şef' : 'Topluluk Şefi',
+    user.badges.includes('Ekonomik Mutfak') ? 'Ekonomik Menü Uzmanı' : 'En çok kaydedilen tarif',
+  ];
 
   const openRecipe = (postId: string, recipeId: string) => {
     navigation.navigate('RecipeDetail', { recipeId, socialPostId: postId });
@@ -187,6 +198,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
             <Stat value={formatFollowerCount(user.followers)} label="Takipci" />
             <Stat value={formatFollowerCount(user.following)} label="Takip" />
             <Stat value={String(user.recipeCount)} label="Tarif" />
+            <Stat value={formatFollowerCount(user.totalLikes)} label="Beğeni" />
             <Stat value={`${user.averageRating}`} label="Puan" />
           </View>
 
@@ -215,6 +227,39 @@ export function SocialProfileScreen({ navigation, route }: Props) {
               </View>
             ))}
           </View>
+
+          <View style={styles.expertiseWrap}>
+            {user.expertiseAreas.map((area) => (
+              <View key={area} style={styles.softBadge}>
+                <Text style={styles.softBadgeText}>{area}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.profileSection}>
+          <Text style={styles.sectionTitle}>Sosyal başarılar</Text>
+          <ProfileAchievementCards achievements={achievements} />
+        </View>
+
+        <View style={styles.profileSection}>
+          <View style={styles.sectionHeaderInline}>
+            <Text style={styles.sectionTitle}>Öne Çıkan Tarifler</Text>
+            <Text style={styles.sectionHint}>Yatay demo</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightRow}>
+            {highlightedPosts.map((post) => (
+              <TouchableOpacity
+                key={post.id}
+                onPress={() => openRecipe(post.id, post.recipeId)}
+                activeOpacity={0.86}
+                style={styles.highlightCard}
+              >
+                <Text style={styles.highlightTitle} numberOfLines={2}>{post.title}</Text>
+                <Text style={styles.highlightMeta}>{post.totalTime} dk • ₺{post.marketBasketPrice}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
@@ -231,23 +276,28 @@ export function SocialProfileScreen({ navigation, route }: Props) {
         </ScrollView>
 
         {activeTab === 'recipes' ? renderPosts(posts) : null}
-        {activeTab === 'saved' ? renderPosts(savedPosts) : null}
+        {activeTab === 'notes' ? (
+          <View style={styles.aboutCard}>
+            <Text style={styles.sectionTitle}>Usta Notları</Text>
+            {(posts.length > 0 ? posts : socialPosts.slice(0, 3)).map((post) => (
+              <View key={post.id} style={styles.noteRow}>
+                <Ionicons name="bulb-outline" size={17} color={theme.colors.primary} />
+                <Text style={styles.noteText}>{post.tip}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {activeTab === 'liked' ? renderPosts(savedPosts) : null}
         {activeTab === 'collections' ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collectionRow}>
-            {mockSocialCollections.map((collection) => (
+            {enhancedSocialCollections.map((collection) => (
               <CollectionCard
                 key={collection.id}
                 collection={collection}
-                onPress={() => showToast(`${collection.title} koleksiyonu acildi.`, 'info')}
+                onPress={() => navigation.navigate('CollectionDetail', { collectionId: collection.id })}
               />
             ))}
           </ScrollView>
-        ) : null}
-        {activeTab === 'comments' ? (
-          <View style={styles.commentsCard}>
-            <Text style={styles.sectionTitle}>Son yorumlar</Text>
-            <CommentList comments={visibleComments} usersById={usersById} />
-          </View>
         ) : null}
         {activeTab === 'about' ? (
           <View style={styles.aboutCard}>
@@ -263,6 +313,8 @@ export function SocialProfileScreen({ navigation, route }: Props) {
               Bu profil demo sosyal agini canli gostermek icin mock veriyle calisir. Ileride takip,
               mesaj ve tarif yayinlama aksiyonlari Firebase veya gercek API ile baglanabilir.
             </Text>
+            <Text style={styles.sectionTitle}>Son yorumlar</Text>
+            <CommentList comments={visibleComments} usersById={usersById} onToggleLike={toggleCommentLike} />
           </View>
         ) : null}
       </ScrollView>
@@ -416,6 +468,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 7,
   },
+  expertiseWrap: {
+    marginTop: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 7,
+  },
   badge: {
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.primarySoft,
@@ -457,6 +516,51 @@ const styles = StyleSheet.create({
   feedList: {
     paddingHorizontal: theme.screen.padding,
     gap: 14,
+  },
+  profileSection: {
+    marginTop: 18,
+    marginHorizontal: theme.screen.padding,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.03,
+  },
+  sectionHeaderInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionHint: {
+    color: theme.colors.subtle,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  highlightRow: {
+    gap: 10,
+  },
+  highlightCard: {
+    width: 170,
+    minHeight: 96,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primarySoft,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  highlightTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  highlightMeta: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
   },
   emptyCard: {
     borderRadius: 22,
@@ -521,5 +625,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  noteRow: {
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+  },
+  noteText: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
   },
 });

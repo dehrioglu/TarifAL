@@ -26,4 +26,6 @@ export type RootStackParamList = {
   InvestorDemo: undefined;
   SocialProfile: { userId: string };
   Activity: undefined;
+  Search: undefined;
+  CollectionDetail: { collectionId: string };
 };

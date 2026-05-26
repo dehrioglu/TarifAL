@@ -604,9 +604,14 @@ export const mockSocialComments: Record<string, SocialComment[]> = {
       id: 'comment-hard-2',
       recipeId: 'post-icli-kofte-anneanne',
       userId: 'user-ogrenci',
-      text: 'Zor ama hafta sonu denemelik. Eksikleri sepete ekleme burada cok iyi oluyor.',
+      text: 'İçli köfte hamurum dağıldı, neden olabilir?',
       likes: 19,
       createdAt: '1 saat once',
+      chefReply: {
+        userId: 'user-murat',
+        text: 'Bulguru fazla ıslatmış olabilirsin. Hamuru yoğururken kontrollü su eklemelisin.',
+        createdAt: '42 dk önce',
+      },
     },
   ],
   'post-hunkar-murat': [
@@ -617,6 +622,11 @@ export const mockSocialComments: Record<string, SocialComment[]> = {
       text: 'Koz patlican puf noktasi cok isime yaradi, davet icin kaydettim.',
       likes: 34,
       createdAt: '2 saat once',
+      chefReply: {
+        userId: 'user-murat',
+        text: 'Patlıcanı kapaklı kapta 5 dakika bekletirsen kabukları daha kolay ayrılır.',
+        createdAt: '1 saat önce',
+      },
     },
   ],
   'post-baklava-pasta': [

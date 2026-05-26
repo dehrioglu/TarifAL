@@ -16,11 +16,19 @@ import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useAppStore } from '../../store/useAppStore';
 import { FavoriteListType, UserGoal } from '../../types';
 
-type ProfileTab = 'mine' | 'liked';
+type ProfileTab = 'mine' | 'saved' | 'collections' | 'tried' | 'activity';
+
+const profileTabs: Array<{ id: ProfileTab; label: string }> = [
+  { id: 'mine', label: 'Paylaştıklarım' },
+  { id: 'saved', label: 'Kaydettiklerim' },
+  { id: 'collections', label: 'Koleksiyonlarım' },
+  { id: 'tried', label: 'Denediklerim' },
+  { id: 'activity', label: 'Aktivitem' },
+];
 
 export function ProfileScreen() {
   const navigation = useNavigation<any>();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('liked');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('saved');
   const [favoriteTab, setFavoriteTab] = useState<FavoriteListType>('favorites');
   const [showInvestorDemo, setShowInvestorDemo] = useState(false);
   const user = useAppStore((store) => store.user);
@@ -30,6 +38,7 @@ export function ProfileScreen() {
   const orders = useAppStore((store) => store.orders);
   const userGoal = useAppStore((store) => store.userGoal);
   const recipeLists = useAppStore((store) => store.recipeLists);
+  const triedRecipes = useAppStore((store) => store.triedRecipes);
   const toggleLike = useAppStore((store) => store.toggleLike);
   const setUserGoal = useAppStore((store) => store.setUserGoal);
   const signOut = useAppStore((store) => store.signOut);
@@ -46,7 +55,11 @@ export function ProfileScreen() {
   );
   const totalHearts = myRecipes.reduce((sum, recipe) => sum + recipe.likes, 0);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const visibleRecipes = activeTab === 'mine' ? myRecipes : likedRecipes;
+  const triedRecipeCards = useMemo(
+    () => recipes.filter((recipe) => triedRecipes.some((item) => item.recipeId === recipe.id)),
+    [recipes, triedRecipes],
+  );
+  const visibleRecipes = activeTab === 'mine' ? myRecipes : activeTab === 'tried' ? triedRecipeCards : likedRecipes;
   const favoriteRecipes = useMemo(
     () => recipes.filter((recipe) => recipeLists[favoriteTab].includes(recipe.id)),
     [favoriteTab, recipeLists, recipes],
@@ -131,6 +144,27 @@ export function ProfileScreen() {
         </View>
       </View>
 
+      <View style={styles.socialIdentity}>
+        <View style={styles.socialIdentityHeader}>
+          <View style={styles.socialIdentityIcon}>
+            <Ionicons name="checkmark-circle" size={18} color={theme.colors.primary} />
+          </View>
+          <View style={styles.socialIdentityCopy}>
+            <Text style={styles.socialIdentityTitle}>@eneschef</Text>
+            <Text style={styles.socialIdentityText}>
+              TarifAL kurucusu · Pratik tarifler, akıllı sepetler ve sosyal mutfak deneyimi.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.socialBadges}>
+          {['Kurucu', 'Mutfak Çırağı', 'Sepet Ustası', 'TarifAL Onaylı'].map((badge) => (
+            <View key={badge} style={styles.socialBadge}>
+              <Text style={styles.socialBadgeText}>{badge}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       <View style={styles.goalWrap}>
         <GamificationCard />
       </View>
@@ -181,27 +215,45 @@ export function ProfileScreen() {
       />
 
       <View style={styles.tabs}>
-        <TouchableOpacity
-          onPress={() => handleTab('mine')}
-          activeOpacity={0.86}
-          style={[styles.tabButton, activeTab === 'mine' && styles.activeTab]}
-        >
-          <Text style={[styles.tabText, activeTab === 'mine' && styles.activeTabText]}>Tariflerim</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleTab('liked')}
-          activeOpacity={0.86}
-          style={[styles.tabButton, activeTab === 'liked' && styles.activeTab]}
-        >
-          <Text style={[styles.tabText, activeTab === 'liked' && styles.activeTabText]}>Beğendiklerim</Text>
-        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.profileTabRow}>
+          {profileTabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              onPress={() => handleTab(tab.id)}
+              activeOpacity={0.86}
+              style={[styles.tabButton, activeTab === tab.id && styles.activeTab]}
+            >
+              <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      {visibleRecipes.length === 0 ? (
+      {activeTab === 'collections' ? (
+        <FavoriteRecipesSection
+          active={favoriteTab}
+          onChange={setFavoriteTab}
+          recipes={favoriteRecipes}
+          likedIds={likes}
+          onOpenRecipe={openRecipe}
+          onToggleLike={toggleLike}
+        />
+      ) : activeTab === 'activity' ? (
+        <View style={styles.empty}>
+          <Ionicons name="pulse-outline" size={30} color={theme.colors.primary} />
+          <Text style={styles.emptyText}>
+            Bugün {likedRecipes.length} tarif kaydettin, {triedRecipeCards.length} tarifi denedin ve {cartCount} ürünü sepete taşıdın.
+          </Text>
+        </View>
+      ) : visibleRecipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="heart-outline" size={30} color={theme.colors.subtle} />
           <Text style={styles.emptyText}>
-            {activeTab === 'mine' ? 'Henüz tarif paylaşmadın.' : 'Henüz beğendiğin tarif yok.'}
+            {activeTab === 'mine'
+              ? 'Henüz tarif paylaşmadın.'
+              : activeTab === 'tried'
+                ? 'Henüz denediğin tarif yok.'
+                : 'Henüz kaydettiğin tarif yok.'}
           </Text>
         </View>
       ) : (
@@ -219,6 +271,8 @@ export function ProfileScreen() {
         </ScrollView>
       )}
 
+      {activeTab !== 'collections' ? (
+        <>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Tarif Koleksiyonları</Text>
       </View>
@@ -230,6 +284,8 @@ export function ProfileScreen() {
         onOpenRecipe={openRecipe}
         onToggleLike={toggleLike}
       />
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -311,6 +367,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  socialIdentity: {
+    marginTop: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 14,
+    gap: 12,
+  },
+  socialIdentityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  socialIdentityIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialIdentityCopy: {
+    flex: 1,
+  },
+  socialIdentityTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  socialIdentityText: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  socialBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  socialBadge: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  socialBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   logout: {
     alignSelf: 'center',
     minHeight: 42,
@@ -325,11 +434,12 @@ const styles = StyleSheet.create({
   },
   tabs: {
     marginTop: 22,
-    flexDirection: 'row',
+  },
+  profileTabRow: {
     gap: 8,
   },
   tabButton: {
-    flex: 1,
+    minWidth: 132,
     height: 44,
     borderRadius: theme.radius.pill,
     borderWidth: 1,

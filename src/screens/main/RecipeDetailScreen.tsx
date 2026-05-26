@@ -16,6 +16,8 @@ import { MissingIngredientsBox } from '../../components/MissingIngredientsBox';
 import { RecipePurchaseOptions } from '../../components/RecipePurchaseOptions';
 import { RestaurantOrderOptions } from '../../components/RestaurantOrderOptions';
 import { DecisionPreference, SmartDecisionCard } from '../../components/SmartDecisionCard';
+import { ShareRecipeModal } from '../../components/ShareRecipeModal';
+import { TriedRecipeModal } from '../../components/TriedRecipeModal';
 import { UserAvatar } from '../../components/UserAvatar';
 import { VoiceKitchenMode } from '../../components/VoiceKitchenMode';
 import { theme } from '../../constants/theme';
@@ -38,6 +40,8 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   const [cookingVisible, setCookingVisible] = useState(false);
   const [voiceVisible, setVoiceVisible] = useState(false);
   const [madeFeedback, setMadeFeedback] = useState('');
+  const [triedVisible, setTriedVisible] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
   const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>(route.params.purchaseMode ?? 'home');
   const [decisionPreference, setDecisionPreference] = useState<DecisionPreference>('best');
   const [selectedBrands, setSelectedBrands] = useState<Record<string, string>>({});
@@ -62,6 +66,8 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   const currentUser = useAppStore((store) => store.user);
   const toggleFollowUser = useAppStore((store) => store.toggleFollowUser);
   const addSocialComment = useAppStore((store) => store.addSocialComment);
+  const toggleCommentLike = useAppStore((store) => store.toggleCommentLike);
+  const addTriedRecipe = useAppStore((store) => store.addTriedRecipe);
   const pantryText = useAppStore((store) => store.pantryText);
   const usersById = useMemo(
     () => {
@@ -287,9 +293,19 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   };
 
   const handleMadeRecipe = () => {
+    setTriedVisible(true);
+  };
+
+  const handleTriedSubmit = (rating: number, comment: string) => {
     toggleRecipeList('cookedBefore', recipe.id);
-    setMadeFeedback('Eline sağlık! Bu tarifi mutfak geçmişine ekledik. İlk Tarif rozeti güncellendi.');
-    showToast('Tarif mutfak geçmişine eklendi.');
+    addTriedRecipe({
+      recipeId: recipe.id,
+      rating,
+      comment,
+      imageUrl: recipe.imageUrl,
+    });
+    setMadeFeedback('Eline sağlık! Deneyimin TarifAL topluluğunda demo olarak paylaşıldı.');
+    showToast('Deneyimin paylaşıldı. TarifAL topluluğuna katkı sağladın.');
   };
 
   const handleCookingFinished = () => {
@@ -484,6 +500,10 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
               <Ionicons name={savedForLater ? 'bookmark' : 'bookmark-outline'} size={17} color={theme.colors.primary} />
               <Text style={styles.quickButtonText}>{savedForLater ? 'Planlandı' : 'Sonra Pişireceğim'}</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShareVisible(true)} activeOpacity={0.85} style={styles.quickButton}>
+              <Ionicons name="share-social-outline" size={17} color={theme.colors.primary} />
+              <Text style={styles.quickButtonText}>Paylaş</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.infoGrid}>
@@ -599,7 +619,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
           </Text>
           <View style={styles.socialCommentsBlock}>
             <CommentInput onSubmit={handleSocialComment} />
-            <CommentList comments={postComments} usersById={usersById} />
+            <CommentList comments={postComments} usersById={usersById} onToggleLike={toggleCommentLike} />
           </View>
           {socialPost ? (
             <View style={styles.creatorMoreCard}>
@@ -645,6 +665,18 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
         onFinish={handleCookingFinished}
       />
       <VoiceKitchenMode recipe={recipe} visible={voiceVisible} onClose={() => setVoiceVisible(false)} />
+      <TriedRecipeModal
+        visible={triedVisible}
+        recipeTitle={recipe.title}
+        onClose={() => setTriedVisible(false)}
+        onSubmit={handleTriedSubmit}
+      />
+      <ShareRecipeModal
+        visible={shareVisible}
+        title={recipe.title}
+        onClose={() => setShareVisible(false)}
+        onAction={(message) => showToast(message, 'info')}
+      />
     </View>
   );
 }

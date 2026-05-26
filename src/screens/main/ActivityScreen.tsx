@@ -1,16 +1,57 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { NotificationCenter } from '../../components/NotificationCenter';
 import { Screen } from '../../components/Screen';
-import { UserAvatar } from '../../components/UserAvatar';
 import { theme } from '../../constants/theme';
+import { mockNotifications } from '../../data/mockNotifications';
 import { mockSocialActivities, mockSocialUsers } from '../../data/mockSocial';
+import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { useAppStore } from '../../store/useAppStore';
+import { SocialUser } from '../../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Activity'>;
 
 export function ActivityScreen({ navigation }: Props) {
+  const currentUser = useAppStore((store) => store.user);
+  const readNotifications = useAppStore((store) => store.readNotifications);
+  const markNotificationRead = useAppStore((store) => store.markNotificationRead);
+  const { showToast } = useFeedback();
+
+  const usersById = useMemo(() => {
+    const demoUser: SocialUser = {
+      id: currentUser?.id ?? 'demo-user',
+      name: currentUser?.name ?? 'Enes Kervankaya',
+      username: '@eneschef',
+      avatarUrl:
+        currentUser?.avatarUrl ??
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=300&auto=format&fit=crop',
+      coverImageUrl:
+        'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=1200&auto=format&fit=crop',
+      bio: 'TarifAL kurucusu.',
+      location: 'İstanbul',
+      followers: 1840,
+      following: 86,
+      recipeCount: 4,
+      totalLikes: 24800,
+      averageRating: 4.8,
+      badges: ['Kurucu', 'TarifAL Onaylı'],
+      level: 'TarifAL Kurucusu',
+      isVerified: true,
+      expertiseAreas: ['Akıllı sepet'],
+    };
+
+    return [demoUser, ...mockSocialUsers].reduce<Record<string, SocialUser>>((acc, user) => {
+      acc[user.id] = user;
+      return acc;
+    }, {});
+  }, [currentUser]);
+
+  const unreadCount = mockNotifications.filter((notification) => !(readNotifications[notification.id] ?? notification.isRead)).length;
+
   return (
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.topBar}>
@@ -19,7 +60,7 @@ export function ActivityScreen({ navigation }: Props) {
         </TouchableOpacity>
         <View style={styles.topCopy}>
           <Text style={styles.title}>Aktivite Merkezi</Text>
-          <Text style={styles.subtitle}>Sosyal tarif hareketleri ve kampanyali sepet sinyalleri.</Text>
+          <Text style={styles.subtitle}>Sosyal bildirimler, bot önerileri ve kampanyalı sepet sinyalleri.</Text>
         </View>
       </View>
 
@@ -28,33 +69,50 @@ export function ActivityScreen({ navigation }: Props) {
           <Ionicons name="pulse-outline" size={24} color={theme.colors.primary} />
         </View>
         <View style={styles.summaryCopy}>
-          <Text style={styles.summaryTitle}>Platform canli gorunumu</Text>
+          <Text style={styles.summaryTitle}>Platform canlı görünümü</Text>
           <Text style={styles.summaryText}>
-            Begeni, takip, bot onerisi ve kampanyali sepet aktiviteleri demo veriyle beslenir.
+            {unreadCount} okunmamış bildirim var. Beğeni, yorum, takip, kampanya ve deneme aktiviteleri demo veriyle beslenir.
           </Text>
         </View>
       </View>
 
-      <View style={styles.list}>
-        {mockSocialActivities.map((activity) => {
-          const actor = mockSocialUsers.find((user) => user.id === activity.actorId) ?? mockSocialUsers[0];
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Bildirimler</Text>
+        <Text style={styles.sectionAction}>{mockNotifications.length} kayıt</Text>
+      </View>
+      <NotificationCenter
+        notifications={mockNotifications}
+        usersById={usersById}
+        readIds={readNotifications}
+        onPressNotification={(notification) => {
+          markNotificationRead(notification.id);
+          showToast('Bildirim okundu olarak işaretlendi.', 'info');
 
-          return (
-            <TouchableOpacity
-              key={activity.id}
-              onPress={() => navigation.navigate('SocialProfile', { userId: actor.id })}
-              activeOpacity={0.86}
-              style={styles.row}
-            >
-              <UserAvatar uri={actor.avatarUrl} name={actor.name} size={44} />
-              <View style={styles.rowCopy}>
-                <Text style={styles.rowText}>{activity.text}</Text>
-                <Text style={styles.rowTime}>{activity.createdAt}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.colors.subtle} />
-            </TouchableOpacity>
-          );
-        })}
+          if (notification.targetId?.startsWith('recipe-')) {
+            navigation.navigate('RecipeDetail', { recipeId: notification.targetId });
+          }
+        }}
+      />
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Canlı akış</Text>
+        <Text style={styles.sectionAction}>Mock sosyal hareketler</Text>
+      </View>
+      <View style={styles.timeline}>
+        {mockSocialActivities.map((activity) => (
+          <TouchableOpacity
+            key={activity.id}
+            onPress={() => navigation.navigate('SocialProfile', { userId: activity.actorId })}
+            activeOpacity={0.86}
+            style={styles.timelineRow}
+          >
+            <View style={styles.timelineDot} />
+            <View style={styles.timelineCopy}>
+              <Text style={styles.timelineText}>{activity.text}</Text>
+              <Text style={styles.timelineTime}>{activity.createdAt}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
     </Screen>
   );
@@ -128,33 +186,53 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '700',
   },
-  list: {
-    marginTop: 18,
+  sectionHeader: {
+    marginTop: 20,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  sectionAction: {
+    color: theme.colors.subtle,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  timeline: {
     gap: 10,
   },
-  row: {
-    minHeight: 74,
-    borderRadius: 22,
+  timelineRow: {
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: '#FFFFFF',
     padding: 12,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
-    ...theme.shadow,
-    shadowOpacity: 0.03,
   },
-  rowCopy: {
+  timelineDot: {
+    width: 10,
+    height: 10,
+    marginTop: 5,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary,
+  },
+  timelineCopy: {
     flex: 1,
   },
-  rowText: {
+  timelineText: {
     color: theme.colors.text,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
   },
-  rowTime: {
+  timelineTime: {
     marginTop: 4,
     color: theme.colors.subtle,
     fontSize: 11,

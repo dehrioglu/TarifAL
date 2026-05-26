@@ -16,6 +16,7 @@ import { theme } from '../../constants/theme';
 import { demoAiChefPrompts, demoAiChefSuggestions } from '../../data/demoAiChef';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { getSocialBotResponse, getSocialBotSuggestions } from '../../services/botService';
 import { useAppStore } from '../../store/useAppStore';
 import { Recipe, RecipeMatch } from '../../types';
 import {
@@ -180,6 +181,7 @@ export function AiChefChatScreen({ navigation }: Props) {
     () => [...messages].reverse().find((message) => message.role === 'assistant' && message.matches)?.id,
     [messages],
   );
+  const socialBotSuggestions = useMemo(() => getSocialBotSuggestions(), []);
 
   const createMatches = (prompt: string) => {
     const intent = extractIntent(prompt);
@@ -222,6 +224,7 @@ export function AiChefChatScreen({ navigation }: Props) {
     }
 
     const prompt = trimmedPrompt || fallbackPrompt;
+    const botResponse = getSocialBotResponse(prompt);
     const { intent, pantryItems, matches } = createMatches(prompt);
     const pantryValue = pantryItems.join(', ');
 
@@ -237,7 +240,9 @@ export function AiChefChatScreen({ navigation }: Props) {
     const assistantMessage: ChatMessage = {
       id: `assistant-${Date.now()}`,
       role: 'assistant',
-      text: buildAssistantText(prompt, matches, pantryItems, intent),
+      text: botResponse.includes('mock bot servisi')
+        ? buildAssistantText(prompt, matches, pantryItems, intent)
+        : `${botResponse} ${buildAssistantText(prompt, matches, pantryItems, intent)}`,
       matches,
       pantryItems,
     };
@@ -320,6 +325,16 @@ export function AiChefChatScreen({ navigation }: Props) {
               style={styles.quickPrompt}
             >
               <Text style={styles.quickPromptText}>{prompt}</Text>
+            </TouchableOpacity>
+          ))}
+          {socialBotSuggestions.map((suggestion) => (
+            <TouchableOpacity
+              key={suggestion.prompt}
+              onPress={() => sendPrompt(suggestion.prompt)}
+              activeOpacity={0.86}
+              style={styles.quickPrompt}
+            >
+              <Text style={styles.quickPromptText}>{suggestion.prompt}</Text>
             </TouchableOpacity>
           ))}
         </View>

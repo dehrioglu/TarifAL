@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 import { demoFamilyAccount } from '../data/demoFamily';
 import { mockSocialComments, mockSocialRecipes } from '../data/mockSocial';
+import { mockSocialFeedExtras } from '../data/mockSocialPosts';
+import { mockTriedRecipes } from '../data/mockTriedRecipes';
 import { demoSmartBasketMarket, smartBasketBudgetModes } from '../data/demoSmartBasket';
 import { demoRecipes } from '../data/demoRecipes';
 import { onboardingStorage } from '../onboarding/onboardingStorage';
@@ -37,6 +39,7 @@ import {
   SmartBasketFlowState,
   SmartBasketInput,
   SmartBasketPlan,
+  TriedRecipePost,
   UserGoal,
 } from '../types';
 import {
@@ -64,6 +67,13 @@ type AppState = {
   socialComments: Record<string, SocialComment[]>;
   socialPostStats: Record<string, SocialPostStats>;
   socialPosts: SocialRecipePost[];
+  socialPollVotes: Record<string, string>;
+  socialPollOptionVotes: Record<string, Record<string, number>>;
+  joinedChallenges: Record<string, boolean>;
+  commentLikes: Record<string, boolean>;
+  triedRecipes: TriedRecipePost[];
+  readNotifications: Record<string, boolean>;
+  collectionSaves: Record<string, boolean>;
   familyAccount: FamilyAccountState;
   smartBasket: SmartBasketFlowState;
   hasSeenWelcomeOnboarding: boolean;
@@ -88,6 +98,12 @@ type AppState = {
   toggleSocialSave: (postId: string) => void;
   toggleFollowUser: (userId: string) => void;
   addSocialComment: (postId: string, text: string) => void;
+  toggleCommentLike: (commentId: string) => void;
+  voteSocialPoll: (postId: string, optionId: string) => void;
+  toggleChallengeJoin: (postId: string) => void;
+  addTriedRecipe: (payload: Omit<TriedRecipePost, 'id' | 'userId' | 'createdAt'>) => void;
+  markNotificationRead: (notificationId: string) => void;
+  toggleCollectionSave: (collectionId: string) => void;
   addFamilyShoppingItem: (item: Omit<FamilyShoppingItem, 'id' | 'checked'>) => void;
   toggleFamilyShoppingItem: (itemId: string) => void;
   removeFamilyShoppingItem: (itemId: string) => void;
@@ -131,6 +147,28 @@ const initialSocialPostStats = mockSocialRecipes.reduce<Record<string, SocialPos
   {},
 );
 
+mockSocialFeedExtras.forEach((post) => {
+  initialSocialPostStats[post.id] = {
+    likes: post.likes,
+    commentsCount: post.commentsCount,
+    saves: post.saves,
+  };
+});
+
+const initialPollOptionVotes = mockSocialFeedExtras.reduce<Record<string, Record<string, number>>>(
+  (acc, post) => {
+    if (post.pollOptions) {
+      acc[post.id] = post.pollOptions.reduce<Record<string, number>>((optionAcc, option) => {
+        optionAcc[option.id] = option.votes;
+        return optionAcc;
+      }, {});
+    }
+
+    return acc;
+  },
+  {},
+);
+
 const mergeSocialPosts = (persistedPosts?: SocialRecipePost[]) => {
   const postMap = new Map<string, SocialRecipePost>();
 
@@ -148,6 +186,11 @@ const mergeSocialComments = (persistedComments?: Record<string, SocialComment[]>
 const mergeSocialPostStats = (persistedStats?: Record<string, SocialPostStats>) => ({
   ...initialSocialPostStats,
   ...(persistedStats ?? {}),
+});
+
+const mergePollOptionVotes = (persistedVotes?: Record<string, Record<string, number>>) => ({
+  ...initialPollOptionVotes,
+  ...(persistedVotes ?? {}),
 });
 
 const createCartItem = (
@@ -231,6 +274,13 @@ type PersistedDemoState = Pick<
   | 'socialComments'
   | 'socialPostStats'
   | 'socialPosts'
+  | 'socialPollVotes'
+  | 'socialPollOptionVotes'
+  | 'joinedChallenges'
+  | 'commentLikes'
+  | 'triedRecipes'
+  | 'readNotifications'
+  | 'collectionSaves'
   | 'pantryText'
   | 'familyAccount'
 >;
@@ -289,6 +339,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   socialComments: mergeSocialComments(persistedDemoState.socialComments),
   socialPostStats: mergeSocialPostStats(persistedDemoState.socialPostStats),
   socialPosts: mergeSocialPosts(persistedDemoState.socialPosts),
+  socialPollVotes: persistedDemoState.socialPollVotes ?? {},
+  socialPollOptionVotes: mergePollOptionVotes(persistedDemoState.socialPollOptionVotes),
+  joinedChallenges: persistedDemoState.joinedChallenges ?? {},
+  commentLikes: persistedDemoState.commentLikes ?? {},
+  triedRecipes: persistedDemoState.triedRecipes ?? mockTriedRecipes,
+  readNotifications: persistedDemoState.readNotifications ?? {},
+  collectionSaves: persistedDemoState.collectionSaves ?? {},
   familyAccount: persistedDemoState.familyAccount ?? demoFamilyAccount,
   smartBasket: {
     input: null,
@@ -588,6 +645,96 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       };
     });
+  },
+
+  toggleCommentLike: (commentId) => {
+    set((state) => {
+      const liked = !state.commentLikes[commentId];
+
+      const socialComments = Object.fromEntries(
+        Object.entries(state.socialComments).map(([postId, comments]) => [
+          postId,
+          comments.map((comment) =>
+            comment.id === commentId
+              ? { ...comment, likes: Math.max(0, comment.likes + (liked ? 1 : -1)), liked }
+              : comment,
+          ),
+        ]),
+      ) as Record<string, SocialComment[]>;
+
+      return {
+        commentLikes: {
+          ...state.commentLikes,
+          [commentId]: liked,
+        },
+        socialComments,
+      };
+    });
+  },
+
+  voteSocialPoll: (postId, optionId) => {
+    set((state) => {
+      const previousOptionId = state.socialPollVotes[postId];
+      const currentVotes = state.socialPollOptionVotes[postId] ?? {};
+      const nextVotes = { ...currentVotes };
+
+      if (previousOptionId && nextVotes[previousOptionId]) {
+        nextVotes[previousOptionId] = Math.max(0, nextVotes[previousOptionId] - 1);
+      }
+
+      nextVotes[optionId] = (nextVotes[optionId] ?? 0) + 1;
+
+      return {
+        socialPollVotes: {
+          ...state.socialPollVotes,
+          [postId]: optionId,
+        },
+        socialPollOptionVotes: {
+          ...state.socialPollOptionVotes,
+          [postId]: nextVotes,
+        },
+      };
+    });
+  },
+
+  toggleChallengeJoin: (postId) => {
+    set((state) => ({
+      joinedChallenges: {
+        ...state.joinedChallenges,
+        [postId]: !state.joinedChallenges[postId],
+      },
+    }));
+  },
+
+  addTriedRecipe: (payload) => {
+    const triedRecipe: TriedRecipePost = {
+      ...payload,
+      id: `tried-${Date.now()}`,
+      userId: get().user?.id ?? 'demo-user',
+      createdAt: 'şimdi',
+    };
+
+    set((state) => ({
+      triedRecipes: [triedRecipe, ...state.triedRecipes],
+    }));
+  },
+
+  markNotificationRead: (notificationId) => {
+    set((state) => ({
+      readNotifications: {
+        ...state.readNotifications,
+        [notificationId]: true,
+      },
+    }));
+  },
+
+  toggleCollectionSave: (collectionId) => {
+    set((state) => ({
+      collectionSaves: {
+        ...state.collectionSaves,
+        [collectionId]: !state.collectionSaves[collectionId],
+      },
+    }));
   },
 
   addFamilyShoppingItem: (item) => {
@@ -1143,6 +1290,13 @@ useAppStore.subscribe((state) =>
     socialComments: state.socialComments,
     socialPostStats: state.socialPostStats,
     socialPosts: state.socialPosts,
+    socialPollVotes: state.socialPollVotes,
+    socialPollOptionVotes: state.socialPollOptionVotes,
+    joinedChallenges: state.joinedChallenges,
+    commentLikes: state.commentLikes,
+    triedRecipes: state.triedRecipes,
+    readNotifications: state.readNotifications,
+    collectionSaves: state.collectionSaves,
     pantryText: state.pantryText,
     familyAccount: state.familyAccount,
   }),
