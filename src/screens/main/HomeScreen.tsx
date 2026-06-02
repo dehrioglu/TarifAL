@@ -1,829 +1,455 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-import { AiAnalysisModal } from '../../components/AiAnalysisModal';
-import { AiChefAssistantCard } from '../../components/AiChefAssistantCard';
-import { BrandLogo } from '../../components/BrandLogo';
-import { BudgetAssistantCard } from '../../components/BudgetAssistantCard';
-import { CommercialIntentCard } from '../../components/CommercialIntentCard';
-import { DailyMealPlan } from '../../components/DailyMealPlan';
-import { EmptyState } from '../../components/EmptyState';
-import { FavoriteRecipesSection } from '../../components/FavoriteRecipesSection';
-import { HomeShareCard } from '../../components/HomeShareCard';
-import { IngredientMatcher } from '../../components/IngredientMatcher';
-import { InputField } from '../../components/InputField';
-import { InvestorDemoStartCard } from '../../components/InvestorDemoStartCard';
-import { PremiumHeroCard } from '../../components/PremiumHeroCard';
-import { RecipeCard } from '../../components/RecipeCard';
+import { TarifALBotFab } from '../../components/TarifALBotFab';
+import { DailyReturnCard } from '../../components/retention/DailyReturnCard';
+import { CommunityPreview } from '../../components/dashboard/CommunityPreview';
+import { DailyPick, DailyPicksSection } from '../../components/dashboard/DailyPicksSection';
+import { HeaderGreeting } from '../../components/dashboard/HeaderGreeting';
+import { KitchenStatusItem, KitchenStatusStrip } from '../../components/dashboard/KitchenStatusStrip';
+import { QuickActionCarousel, QuickKitchenAction } from '../../components/dashboard/QuickActionCarousel';
+import { SmartHeroCard } from '../../components/dashboard/SmartHeroCard';
 import { Screen } from '../../components/Screen';
-import { TodayDecisionCard } from '../../components/TodayDecisionCard';
-import { WasteReductionCard } from '../../components/WasteReductionCard';
-import { WeeklyMealPlanner } from '../../components/WeeklyMealPlanner';
 import { theme } from '../../constants/theme';
+import { mockSocialRecipes, mockSocialUsers } from '../../data/mockSocial';
+import { mockNotifications } from '../../data/mockNotifications';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { useOnboardingTour } from '../../onboarding/useOnboardingTour';
+import { useDailyReturn } from '../../retention/useDailyReturn';
+import { TasteCategory } from '../../personalization/tasteProfileStore';
+import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
-import { FavoriteListType, Ingredient, Recipe } from '../../types';
-import { getRecipeMatches, normalizeIngredientText, sortRecipesByGoal } from '../../utils/recipeMatching';
-
-type HomeSection = 'pantry' | 'chef' | 'today' | 'weekly' | 'market' | 'favorites';
-
-type MarketListItem = {
-  key: string;
-  recipe: Recipe;
-  ingredient: Ingredient;
-};
-
-const quickActions: Array<{ id: HomeSection; label: string }> = [
-  { id: 'today', label: '📅 Bugün Ne Pişirsem?' },
-  { id: 'pantry', label: '🥚 Evde Ne Var?' },
-  { id: 'weekly', label: '🗓 Haftalık Plan' },
-  { id: 'market', label: '🛒 Market Listesi' },
-  { id: 'favorites', label: '❤️ Favorilerim' },
-  { id: 'chef', label: '✨ AI Şef’e Sor' },
-];
+import { Recipe, SocialRecipePost, SocialUser } from '../../types';
+import { getRecipeCost, getRecipeMatches, parsePantryText } from '../../utils/recipeMatching';
 
 export function HomeScreen() {
   const navigation = useNavigation<any>();
-  const [activeSection, setActiveSection] = useState<HomeSection>('pantry');
-  const [query, setQuery] = useState('');
-  const [assistantAction, setAssistantAction] = useState<string>();
-  const [favoriteTab, setFavoriteTab] = useState<FavoriteListType>('favorites');
-  const [weeklyExpanded, setWeeklyExpanded] = useState(false);
-  const [marketChecks, setMarketChecks] = useState<Record<string, boolean>>({});
-  const [analysisVisible, setAnalysisVisible] = useState(false);
-  const { showToast, showDemoModal } = useFeedback();
-  const { currentStep, isTourActive, registerTarget } = useOnboardingTour();
-
+  const { showDemoModal, showToast } = useFeedback();
+  const { registerTarget } = useOnboardingTour();
   const user = useAppStore((store) => store.user);
   const recipes = useAppStore((store) => store.recipes);
-  const likes = useAppStore((store) => store.likes);
-  const recipeLists = useAppStore((store) => store.recipeLists);
   const pantryText = useAppStore((store) => store.pantryText);
-  const userGoal = useAppStore((store) => store.userGoal);
-  const toggleLike = useAppStore((store) => store.toggleLike);
-  const setPantryText = useAppStore((store) => store.setPantryText);
-  const addIngredientToCart = useAppStore((store) => store.addIngredientToCart);
+  const recipeLists = useAppStore((store) => store.recipeLists);
+  const cart = useAppStore((store) => store.cart);
+  const readNotifications = useAppStore((store) => store.readNotifications);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
+  const setUserGoal = useAppStore((store) => store.setUserGoal);
+  const { recordCategoryInteraction, sortRecipes } = useUserTasteProfile();
+  const [dailyRecipeOffset, setDailyRecipeOffset] = useState(0);
+  const { streak, completedToday, completeDailyAction } = useDailyReturn();
+
   const headerTargetRef = useMemo(() => registerTarget('homeHeader'), [registerTarget]);
-  const searchTargetRef = useMemo(() => registerTarget('homeSearch'), [registerTarget]);
+  const heroTargetRef = useMemo(() => registerTarget('homeSearch'), [registerTarget]);
+  const servicesTargetRef = useMemo(() => registerTarget('homeQuickActions'), [registerTarget]);
   const pantryTargetRef = useMemo(() => registerTarget('homePantry'), [registerTarget]);
-  const quickActionsTargetRef = useMemo(() => registerTarget('homeQuickActions'), [registerTarget]);
-  const recipeCardsTargetRef = useMemo(() => registerTarget('homeRecipeCards'), [registerTarget]);
   const marketTargetRef = useMemo(() => registerTarget('homeMarket'), [registerTarget]);
+  const recipeTargetRef = useMemo(() => registerTarget('homeRecipeCards'), [registerTarget]);
 
   const firstName = user?.name?.split(' ')[0] ?? 'Enes';
-  const goalSortedRecipes = useMemo(() => sortRecipesByGoal(recipes, userGoal), [recipes, userGoal]);
-  const matches = useMemo(() => getRecipeMatches(goalSortedRecipes, pantryText), [goalSortedRecipes, pantryText]);
+  const sortedRecipes = useMemo(() => sortRecipes(recipes), [recipes, sortRecipes]);
+  const recipeMatches = useMemo(() => getRecipeMatches(sortedRecipes, pantryText), [pantryText, sortedRecipes]);
+  const pantryCount = parsePantryText(pantryText).length;
+  const unreadCount = mockNotifications.filter(
+    (notification) => !(readNotifications[notification.id] ?? notification.isRead),
+  ).length;
 
-  const searchResults = useMemo(() => {
-    const normalizedQuery = query.toLocaleLowerCase('tr-TR').trim();
-
-    if (!normalizedQuery) {
-      return [];
+  const practicalRecipes = useMemo(
+    () => sortedRecipes.filter((recipe) => recipe.difficulty === 'Kolay' && recipe.prepTime <= 30),
+    [sortedRecipes],
+  );
+  const dailyRecipe = useMemo(() => {
+    if (practicalRecipes.length === 0) {
+      return undefined;
     }
 
-    return goalSortedRecipes
-      .filter((recipe) => {
-        const searchable = [
-          recipe.title,
-          recipe.description,
-          recipe.category,
-          recipe.difficulty,
-          ...recipe.tags,
-          ...recipe.ingredients.map((ingredient) => ingredient.name),
-        ]
-          .join(' ')
-          .toLocaleLowerCase('tr-TR');
+    const today = new Date();
+    const daySeed = Math.floor(new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() / 86400000);
 
-        return searchable.includes(normalizedQuery);
-      })
-      .slice(0, 4);
-  }, [goalSortedRecipes, query]);
-
-  const favoriteRecipes = useMemo(
-    () => recipes.filter((recipe) => recipeLists[favoriteTab].includes(recipe.id)),
-    [favoriteTab, recipeLists, recipes],
+    return practicalRecipes[(daySeed + dailyRecipeOffset) % practicalRecipes.length];
+  }, [dailyRecipeOffset, practicalRecipes]);
+  const heroRecipe =
+    recipes.find((recipe) => recipe.id === 'recipe-tavuklu-makarna') ??
+    dailyRecipe ??
+    recipes[0];
+  const missingBasketValue = Math.max(
+    186,
+    cart.reduce((total, item) => total + item.price * item.quantity, 0),
   );
 
-  const assistantMessage = useMemo(() => {
-    const [topMatch] = matches;
-
-    if (!topMatch) {
-      return 'Evdeki malzemeleri yaz, sana en uygun tarifleri bulalım.';
-    }
-
-    const matched = topMatch.matchedIngredients.slice(0, 2).map((item) => item.name).join(' ve ');
-
-    if (topMatch.missingIngredients.length === 0) {
-      return `${matched} ile ${topMatch.recipe.title} tam uyumlu görünüyor. Hemen pişirebilirsin.`;
-    }
-
-    return `${matched || 'Bu malzemeler'} ile ${topMatch.recipe.title} yapabilirsin. ${topMatch.missingIngredients.length} eksiği tek tıkla sepete ekleyebiliriz.`;
-  }, [matches]);
-
-  const heroInsight = useMemo(() => {
-    const topMatches = matches.slice(0, 3);
-    const missingCount = topMatches.reduce((sum, match) => sum + match.missingIngredients.length, 0);
-
-    if (userGoal === 'Ekonomik beslenmek') {
-      return 'Bugün bütçe dostu tarifler öne çıkarıldı. Ortalama öneri maliyeti demo veride 150 TL altında.';
-    }
-
-    if (userGoal === 'Kas yapmak') {
-      return 'Kas yapmak için protein etiketi güçlü tarifler ve uygun malzeme eşleşmeleri öne alındı.';
-    }
-
-    return `Evindeki malzemelerle ${topMatches.length} güçlü öneri bulundu. İlk önerilerde ${missingCount} eksik ürün market listesine dönüşebilir.`;
-  }, [matches, userGoal]);
-
-  const marketItems = useMemo<MarketListItem[]>(() => {
-    const items = new Map<string, MarketListItem>();
-
-    matches.slice(0, 4).forEach((match) => {
-      match.missingIngredients.forEach((ingredient) => {
-        const key = normalizeIngredientText(ingredient.name);
-
-        if (!items.has(key)) {
-          items.set(key, { key, recipe: match.recipe, ingredient });
-        }
-      });
-    });
-
-    return Array.from(items.values()).slice(0, 5);
-  }, [matches]);
-
-  const checkedMarketCount = marketItems.filter((item) => marketChecks[item.key] ?? true).length;
-
-  useEffect(() => {
-    if (!isTourActive || !currentStep) {
-      return;
-    }
-
-    if (currentStep.target === 'homeMarket') {
-      setActiveSection('market');
-      return;
-    }
-
-    if (currentStep.target === 'homePantry' || currentStep.target === 'homeRecipeCards') {
-      setActiveSection('pantry');
-    }
-  }, [currentStep, isTourActive]);
-
-  const openRecipe = (recipeId: string) => {
-    navigation.getParent()?.navigate('RecipeDetail', { recipeId });
-  };
-
-  const openSmartBasket = () => {
-    navigation.getParent()?.navigate('SmartBasket');
-  };
-
-  const openReadyMealOrder = () => {
-    const recipeId =
-      recipes.find((recipe) => recipe.id === 'recipe-tavuklu-makarna')?.id ??
-      recipes.find((recipe) => recipe.category === 'Ana Yemek')?.id ??
-      recipes[0]?.id;
-
-    if (!recipeId) {
-      showToast('Hazır yemek için önce bir tarif gerekli.', 'warning');
-      return;
-    }
-
-    navigation.getParent()?.navigate('RecipeDetail', { recipeId, purchaseMode: 'restaurant' });
-  };
-
-  const openPantryVision = () => {
-    navigation.getParent()?.navigate('PantryVision');
-  };
-
-  const openFamilyAccount = () => {
-    navigation.getParent()?.navigate('FamilyAccount');
-  };
-
-  const openAiChefChat = () => {
-    navigation.getParent()?.navigate('AiChefChat');
-  };
-
-  const openInvestorDemo = () => {
-    navigation.getParent()?.navigate('InvestorDemo');
-  };
-
-  const handleAssistantAction = (action: string) => {
-    const pantryByAction: Record<string, string> = {
-      'Daha sağlıklı yap': 'nohut, yeşillik, limon, mercimek',
-      'Daha ekonomik yap': 'mercimek, soğan, havuç, yumurta',
-      '20 dakikada hazır olsun': 'yumurta, domates, biber',
-      'Çocuklara uygun yap': 'un, süt, yumurta, bal',
-    };
-
-    setAssistantAction(action);
-    setPantryText(pantryByAction[action] ?? 'yumurta, domates');
-    setAnalysisVisible(true);
-  };
-
-  const handleDailyList = () => {
-    const dailyRecipes = [
-      recipes.find((recipe) => recipe.category === 'Kahvaltı'),
-      recipes.find((recipe) => recipe.category === 'Çorba'),
-      recipes.find((recipe) => recipe.category === 'Ana Yemek'),
-      recipes.find((recipe) => recipe.category === 'Tatlı'),
-    ].filter(Boolean);
-
-    dailyRecipes.forEach((recipe) => recipe && addMissingIngredientsToCart(recipe.id));
-    showToast('Bugünün yemek planı sepete aktarıldı.');
-    showDemoModal({
-      title: 'Liste hazır',
-      message: 'Günlük menünün eksik malzemeleri sepete eklendi. İstersen Akıllı Sipariş akışına geçebilirsin.',
-      primaryLabel: 'Sepete Git',
-      secondaryLabel: 'Tamam',
-      onPrimary: () => navigation.navigate('Cart'),
-    });
-  };
-
-  const handleWeeklyList = () => {
-    recipes.slice(0, 7).forEach((recipe) => addMissingIngredientsToCart(recipe.id));
-    showToast('Haftalık demo planın alışveriş listesi hazır.');
-    showDemoModal({
-      title: 'Haftalık liste hazır',
-      message: 'Haftalık planın eksik malzemeleri sepete eklendi. Bu demo akışı market sepetine dönüşümü gösterir.',
-      primaryLabel: 'Sepete Git',
-      secondaryLabel: 'Tamam',
-      onPrimary: () => navigation.navigate('Cart'),
-    });
-  };
-
-  const handleWasteMode = () => {
-    setPantryText('yoğurt, süt, yumurta, peynir, sebze');
-    setActiveSection('pantry');
-    setAnalysisVisible(true);
-    showToast('İsrafı Azalt modu için malzemeler hazırlandı.', 'info');
-  };
-
-  const toggleMarketItem = (key: string) => {
-    setMarketChecks((current) => ({ ...current, [key]: !(current[key] ?? true) }));
-  };
-
-  const handleAddMarketList = () => {
-    const selectedItems = marketItems.filter((item) => marketChecks[item.key] ?? true);
-
-    if (selectedItems.length === 0) {
-      showToast('Sepete eklemek için en az bir malzeme seç.', 'warning');
-      return;
-    }
-
-    selectedItems.forEach((item) => addIngredientToCart(item.recipe, item.ingredient));
-    showToast(`${selectedItems.length} eksik malzeme sepete eklendi.`);
-    showDemoModal({
-      title: 'Sepet güncellendi',
-      message: `${selectedItems.length} eksik malzeme sepete eklendi. Bu listeyi Akıllı Sipariş ekranında demo market sepetine dönüştürebilirsin.`,
-      primaryLabel: 'Akıllı Siparişe Geç',
-      secondaryLabel: 'Sepete Git',
-      onPrimary: () => navigation.getParent()?.navigate('MarketCheckout'),
-      onSecondary: () => navigation.navigate('Cart'),
-    });
-  };
-
-  const handleClearMarketList = () => {
-    setMarketChecks(
-      marketItems.reduce<Record<string, boolean>>((acc, item) => {
-        acc[item.key] = false;
+  const usersById = useMemo(
+    () =>
+      mockSocialUsers.reduce<Record<string, SocialUser>>((acc, socialUser) => {
+        acc[socialUser.id] = socialUser;
         return acc;
       }, {}),
-    );
-    showToast('Market listesi temizlendi.', 'info');
-  };
+    [],
+  );
+  const communityItems = useMemo(
+    () =>
+      ['post-hunkar-murat', 'post-mercimek-ayse', 'post-tarifal-kisir'].flatMap((postId) => {
+        const post = mockSocialRecipes.find((item) => item.id === postId);
+        const author = post ? usersById[post.authorId] : undefined;
 
-  const renderMarketList = () => (
-    <View style={styles.marketCard}>
-      <View style={styles.panelHeader}>
-        <View>
-          <Text style={styles.panelTitle}>Market Listesi</Text>
-          <Text style={styles.panelSubtitle}>Evdeki malzemelerine göre eksikleri seç.</Text>
-        </View>
-        <View style={styles.panelIcon}>
-          <Ionicons name="cart-outline" size={21} color={theme.colors.primary} />
-        </View>
-      </View>
-
-      {marketItems.length === 0 ? (
-        <EmptyState
-          icon="checkmark-done-outline"
-          title="Eksik malzeme görünmüyor"
-          text="Malzemelerini değiştirdiğinde alışveriş listesi burada oluşur."
-        />
-      ) : (
-        <View style={styles.marketList}>
-          {marketItems.map((item) => {
-            const checked = marketChecks[item.key] ?? true;
-
-            return (
-              <TouchableOpacity
-                key={item.key}
-                onPress={() => toggleMarketItem(item.key)}
-                activeOpacity={0.85}
-                style={styles.marketRow}
-              >
-                <Ionicons
-                  name={checked ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={checked ? theme.colors.primary : theme.colors.subtle}
-                />
-                <View style={styles.marketCopy}>
-                  <Text style={styles.marketName}>{item.ingredient.name}</Text>
-                  <Text style={styles.marketMeta} numberOfLines={1}>
-                    {item.recipe.title} için • {item.ingredient.gram} gr
-                  </Text>
-                </View>
-                <Text style={styles.marketPrice}>₺{item.ingredient.price.toFixed(0)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      <View style={styles.marketActions}>
-        <TouchableOpacity onPress={handleAddMarketList} activeOpacity={0.86} style={styles.primaryAction}>
-          <Text style={styles.primaryActionText}>Sepete ekle</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleClearMarketList} activeOpacity={0.86} style={styles.secondaryAction}>
-          <Text style={styles.secondaryActionText}>Listeyi temizle</Text>
-        </TouchableOpacity>
-      </View>
-      {marketItems.length > 0 ? (
-        <Text style={styles.marketHint}>{checkedMarketCount} ürün seçili</Text>
-      ) : null}
-    </View>
+        return post && author ? [{ post, author }] : [];
+      }),
+    [usersById],
   );
 
-  const renderActivePanel = () => {
-    if (activeSection === 'pantry') {
-      return (
-        <IngredientMatcher
-          onOpenRecipe={openRecipe}
-          onOpenVision={openPantryVision}
-          onOpenCart={() => navigation.navigate('Cart')}
-          onOpenCheckout={() => navigation.getParent()?.navigate('MarketCheckout')}
-          maxMatches={2}
-          targetRef={pantryTargetRef}
-          matchesTargetRef={recipeCardsTargetRef}
-        />
-      );
-    }
-
-    if (activeSection === 'chef') {
-      return (
-        <View style={styles.panelStack}>
-          <AiChefAssistantCard
-            onAction={handleAssistantAction}
-            message={assistantMessage}
-            activeAction={assistantAction}
-          />
-          <BudgetAssistantCard matches={matches} onOpenRecipe={openRecipe} />
-          <WasteReductionCard onUseWasteMode={handleWasteMode} />
-        </View>
-      );
-    }
-
-    if (activeSection === 'today') {
-      return (
-        <View style={styles.panelStack}>
-          <TodayDecisionCard
-            matches={matches}
-            userGoal={userGoal}
-            onAnalyze={() => setAnalysisVisible(true)}
-            onOpenRecipe={openRecipe}
-            onAddMissing={(recipeId) => {
-              addMissingIngredientsToCart(recipeId);
-              showToast('Eksik malzemeler sepete aktarıldı.');
-            }}
-          />
-          <DailyMealPlan recipes={recipes} onCreateList={handleDailyList} onOpenRecipe={openRecipe} />
-        </View>
-      );
-    }
-
-    if (activeSection === 'weekly') {
-      return (
-        <View style={styles.weeklyWrap}>
-          <WeeklyMealPlanner
-            recipes={recipes}
-            onCreateList={handleWeeklyList}
-            onOpenRecipe={openRecipe}
-            previewDays={weeklyExpanded ? 7 : 3}
-          />
-          {!weeklyExpanded ? (
-            <TouchableOpacity onPress={() => setWeeklyExpanded(true)} activeOpacity={0.86} style={styles.expandButton}>
-              <Text style={styles.expandButtonText}>Tüm haftalık planı gör</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      );
-    }
-
-    if (activeSection === 'market') {
-      return (
-        <View ref={marketTargetRef} style={styles.panelStack}>
-          {renderMarketList()}
-          <HomeShareCard onOpenFamilyAccount={openFamilyAccount} />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.favoritesWrap}>
-        <View style={styles.panelHeader}>
-          <View>
-            <Text style={styles.panelTitle}>Favorilerim</Text>
-            <Text style={styles.panelSubtitle}>Kaydettiğin tarifler ve pişirme listelerin.</Text>
-          </View>
-          <View style={styles.panelIcon}>
-            <Ionicons name="heart-outline" size={21} color={theme.colors.primary} />
-          </View>
-        </View>
-        <FavoriteRecipesSection
-          active={favoriteTab}
-          onChange={setFavoriteTab}
-          recipes={favoriteRecipes}
-          likedIds={likes}
-          onOpenRecipe={openRecipe}
-          onToggleLike={toggleLike}
-        />
-      </View>
-    );
+  const openRecipe = (recipe: Recipe, purchaseMode?: 'home' | 'market' | 'restaurant') => {
+    navigation.getParent()?.navigate('RecipeDetail', { recipeId: recipe.id, purchaseMode });
   };
 
+  const openReadyMeals = () => {
+    const recipe =
+      recipes.find((item) => item.id === 'recipe-hunkar-begendi') ??
+      recipes.find((item) => item.category === 'Ana Yemek') ??
+      recipes[0];
+
+    if (!recipe) {
+      showToast('Hazır yemek alternatifleri için önce bir tarif gerekli.', 'warning');
+      return;
+    }
+
+    openRecipe(recipe, 'restaurant');
+  };
+
+  const openWeeklyPlan = () => {
+    showDemoModal({
+      title: 'TarifAL Plan',
+      message:
+        'Haftalık yemek planını kişi sayına ve bütçene göre Akıllı Sepet akışında hazırlayabilir, eksikleri tek seferde alışverişe dönüştürebilirsin.',
+      primaryLabel: 'Planı Oluştur',
+      secondaryLabel: 'Kapat',
+      onPrimary: () => navigation.getParent()?.navigate('SmartBasket'),
+    });
+  };
+
+  const showAnotherPracticalRecipe = () => {
+    setDailyRecipeOffset((currentOffset) => (currentOffset + 1) % Math.max(practicalRecipes.length, 1));
+    showToast('Yeni bir pratik tarif önerdim.', 'info');
+  };
+
+  const openTasteDiscover = (category: TasteCategory) => {
+    recordCategoryInteraction(category);
+    navigation.navigate('Explore');
+  };
+
+  const openEconomic = () => {
+    setUserGoal('Ekonomik beslenmek');
+    openTasteDiscover('ekonomik');
+    showToast('Bütçe dostu tarifler senin için öne alındı.', 'info');
+  };
+
+  const openFit = () => {
+    setUserGoal('Sağlıklı beslenmek');
+    openTasteDiscover('fit');
+    showToast('Fit tarifler senin için öne alındı.', 'info');
+  };
+
+  const openPick = (pick: DailyPick) => {
+    const categoryByPick: Record<string, TasteCategory> = {
+      practical: 'pratik',
+      economic: 'ekonomik',
+      fit: 'fit',
+      master: 'geleneksel',
+    };
+    const category = categoryByPick[pick.id];
+
+    if (category) {
+      recordCategoryInteraction(category);
+    }
+
+    openRecipe(pick.recipe);
+  };
+
+  const openCommunityPost = (post: SocialRecipePost) => {
+    navigation.getParent()?.navigate('RecipeDetail', {
+      recipeId: post.recipeId,
+      socialPostId: post.id,
+    });
+  };
+
+  const quickActions: QuickKitchenAction[] = [
+    {
+      id: 'home',
+      icon: 'home-outline',
+      title: 'TarifAL Evde',
+      description: 'Evdeki malzemelerle tarif bul.',
+      onPress: () => navigation.getParent()?.navigate('PantryVision'),
+    },
+    {
+      id: 'basket',
+      icon: 'basket-outline',
+      title: 'TarifAL Sepet',
+      description: 'Eksikleri market sepetine çevir.',
+      onPress: () => navigation.getParent()?.navigate('SmartBasket'),
+    },
+    {
+      id: 'meal',
+      icon: 'restaurant-outline',
+      title: 'TarifAL Yemek',
+      description: 'Hazır yemek alternatiflerini gör.',
+      tone: 'navy',
+      onPress: openReadyMeals,
+    },
+    {
+      id: 'plan',
+      icon: 'calendar-outline',
+      title: 'TarifAL Plan',
+      description: 'Haftalık yemek planı oluştur.',
+      tone: 'navy',
+      onPress: openWeeklyPlan,
+    },
+    {
+      id: 'fit',
+      icon: 'fitness-outline',
+      title: 'TarifAL Fit',
+      description: 'Dengeli ve hafif tarifleri seç.',
+      tone: 'green',
+      onPress: openFit,
+    },
+    {
+      id: 'economic',
+      icon: 'wallet-outline',
+      title: 'TarifAL Ekonomik',
+      description: 'Bütçeye uygun menüleri keşfet.',
+      onPress: openEconomic,
+    },
+  ];
+
+  const kitchenStatuses: KitchenStatusItem[] = [
+    {
+      id: 'pantry',
+      icon: 'cube-outline',
+      value: `${Math.max(12, pantryCount)} ürün`,
+      label: 'dolapta',
+    },
+    {
+      id: 'expiry',
+      icon: 'time-outline',
+      value: '3 ürün',
+      label: 'yakında tüketilmeli',
+      tone: 'green',
+    },
+    {
+      id: 'missing',
+      icon: 'basket-outline',
+      value: `₺${missingBasketValue}`,
+      label: 'eksik ürün',
+    },
+    {
+      id: 'favorites',
+      icon: 'heart-outline',
+      value: `${Math.max(2, recipeLists.favorites.length)} tarif`,
+      label: 'favorilerinde hazır',
+      tone: 'navy',
+    },
+  ];
+
+  const dailyPicks = useMemo<DailyPick[]>(() => {
+    const pickDefinitions = [
+      {
+        id: 'practical',
+        label: 'Pratik',
+        description: '30 dakikada sofrada.',
+        recipe: dailyRecipe,
+      },
+      {
+        id: 'economic',
+        label: 'Ekonomik',
+        description: 'Bütçe dostu aile seçimi.',
+        recipe: recipes.find((recipe) => recipe.id === 'recipe-bulgur-pilavi'),
+      },
+      {
+        id: 'fit',
+        label: 'Fit',
+        description: 'Hafif ve proteinli tabak.',
+        recipe: recipes.find((recipe) => recipe.id === 'recipe-ton-balikli-salata'),
+      },
+      {
+        id: 'master',
+        label: 'Usta işi',
+        description: 'Hafta sonu için özel seçim.',
+        recipe: recipes.find((recipe) => recipe.id === 'recipe-hunkar-begendi'),
+      },
+    ];
+
+    return pickDefinitions.flatMap((pick) => (pick.recipe ? [{ ...pick, recipe: pick.recipe }] : []));
+  }, [dailyRecipe, recipes]);
+
   return (
-    <Screen scroll contentStyle={styles.content}>
-      <View ref={headerTargetRef}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.greeting}>Merhaba {firstName} 👋</Text>
-            <Text style={styles.title}>Bugün ne pişirelim?</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Profil"
-            style={styles.avatar}
-          >
-            <BrandLogo size={44} />
-          </TouchableOpacity>
+    <View style={styles.root}>
+      <Screen scroll contentStyle={styles.content}>
+        <View ref={headerTargetRef}>
+          <HeaderGreeting
+            firstName={firstName}
+            unreadCount={unreadCount}
+            onOpenNotifications={() => navigation.getParent()?.navigate('Activity')}
+            onOpenProfile={() => navigation.navigate('Profile')}
+          />
         </View>
-        <PremiumHeroCard
-          insight={heroInsight}
-          onOpenSmartBasket={openSmartBasket}
-          onOpenVision={openPantryVision}
-          onOpenToday={() => setActiveSection('today')}
-          onOpenPantry={() => setActiveSection('pantry')}
-        />
-        <CommercialIntentCard
-          onOpenPantry={() => setActiveSection('pantry')}
-          onOpenSmartBasket={openSmartBasket}
-          onOpenRestaurant={openReadyMealOrder}
-        />
-        <InvestorDemoStartCard onPress={openInvestorDemo} />
-      </View>
 
-      <View ref={searchTargetRef}>
-        <InputField
-          icon="search-outline"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Tarif, malzeme veya etiket ara..."
-          containerStyle={styles.search}
-        />
-      </View>
-
-      <View ref={quickActionsTargetRef} style={styles.quickStartBlock}>
-        <Text style={styles.quickStartTitle}>Hızlı Başla</Text>
-        <View style={styles.quickActions}>
-          {quickActions.map((action) => {
-            const active = activeSection === action.id;
-
-            return (
-              <TouchableOpacity
-                key={action.id}
-                onPress={() => {
-                  if (action.id === 'chef') {
-                    openAiChefChat();
-                    return;
-                  }
-
-                  setActiveSection(action.id);
-                }}
-                activeOpacity={0.86}
-                style={[styles.quickAction, active && styles.quickActionActive]}
-              >
-                <Text
-                  style={[styles.quickActionText, active && styles.quickActionTextActive]}
-                  numberOfLines={1}
-                >
-                  {action.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      <View style={styles.dynamicArea}>{renderActivePanel()}</View>
-
-      {query.trim() ? (
-        <View style={styles.searchResults}>
-          <View style={styles.resultHeader}>
-            <Text style={styles.resultTitle}>Arama Sonuçları</Text>
-            <Text style={styles.resultCount}>{searchResults.length} tarif</Text>
+        {heroRecipe ? (
+          <View ref={heroTargetRef} style={styles.heroWrap}>
+            <SmartHeroCard
+              imageUrl={heroRecipe.imageUrl}
+              recipeCount={Math.max(6, recipeMatches.slice(0, 6).length)}
+              matchPercent={Math.max(82, recipeMatches[0]?.matchPercent ?? 0)}
+              availableRecipeCount={Math.max(
+                3,
+                recipeMatches.filter((match) => match.matchPercent === 100).length,
+              )}
+              onOpenToday={() => navigation.getParent()?.navigate('AiChefChat')}
+              onOpenPantry={() => navigation.getParent()?.navigate('PantryVision')}
+            />
           </View>
-          <View style={styles.resultList}>
-            {searchResults.length === 0 ? (
-              <EmptyState
-                icon="search-outline"
-                title="Sonuç bulamadık"
-                text="Tarif adı, malzeme veya etiketi farklı yazmayı dene."
-              />
-            ) : (
-              searchResults.map((recipe) => (
-                <RecipeCard
-                  key={recipe.id}
-                  recipe={recipe}
-                  liked={Boolean(likes[recipe.id])}
-                  onPress={() => openRecipe(recipe.id)}
-                  onToggleLike={() => toggleLike(recipe.id)}
-                  variant="wide"
-                />
-              ))
-            )}
+        ) : null}
+
+        <View style={styles.retentionWrap}>
+          <DailyReturnCard
+            streak={streak}
+            completedToday={completedToday}
+            onPress={() => {
+              void completeDailyAction();
+              navigation.navigate('Explore');
+              showToast('Bugünün kişisel keşif akışı açıldı.', 'info');
+            }}
+            compact
+          />
+        </View>
+
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={styles.sectionTitle}>Akıllı mutfak durumun</Text>
+            <Text style={styles.sectionSubtitle}>Dolabından sepete, tek bakışta.</Text>
           </View>
         </View>
-      ) : null}
+        <KitchenStatusStrip items={kitchenStatuses} />
 
-      <AiAnalysisModal
-        visible={analysisVisible}
-        matches={matches}
-        userGoal={userGoal}
-        onClose={() => setAnalysisVisible(false)}
-        onOpenRecipe={(recipeId) => {
-          setAnalysisVisible(false);
-          openRecipe(recipeId);
-        }}
-        onAddMissing={(recipeId) => {
-          addMissingIngredientsToCart(recipeId);
-          showDemoModal({
-            title: 'Sepet güncellendi',
-            message: 'Eksik ürünler alışveriş listene eklendi. İstersen şimdi Akıllı Sipariş demosuna geçebilirsin.',
-            primaryLabel: 'Akıllı Siparişe Geç',
-            secondaryLabel: 'Sepete Git',
-            onPrimary: () => navigation.getParent()?.navigate('MarketCheckout'),
-            onSecondary: () => navigation.navigate('Cart'),
-          });
-        }}
-      />
-    </Screen>
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={styles.sectionTitle}>Hızlı başla</Text>
+            <Text style={styles.sectionSubtitle}>İhtiyacın olan TarifAL servisini seç.</Text>
+          </View>
+          <Text style={styles.sectionMeta}>6 servis</Text>
+        </View>
+        <View ref={servicesTargetRef}>
+          <View ref={pantryTargetRef}>
+            <View ref={marketTargetRef}>
+              <QuickActionCarousel actions={quickActions} />
+            </View>
+          </View>
+        </View>
+
+        <View ref={recipeTargetRef} style={styles.sectionBlock}>
+          <DailyPicksSection
+            picks={dailyPicks}
+            onOpenPick={openPick}
+            onRefreshPractical={showAnotherPracticalRecipe}
+          />
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <CommunityPreview
+            items={communityItems}
+            onOpenPost={openCommunityPost}
+            onOpenExplore={() => navigation.navigate('Explore')}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={() => navigation.getParent()?.navigate('InvestorDemo')}
+          activeOpacity={0.82}
+          accessibilityRole="button"
+          accessibilityLabel="Yatırımcı demosunu başlat"
+          style={styles.demoLink}
+        >
+          <Ionicons name="analytics-outline" size={17} color={theme.colors.primary} />
+          <View style={styles.demoCopy}>
+            <Text style={styles.demoTitle}>Yatırımcı demosunu başlat</Text>
+            <Text style={styles.demoText}>Tariften sepete dönüşen ana akışı 1 dakikada göster.</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} />
+        </TouchableOpacity>
+      </Screen>
+
+      <TarifALBotFab onPress={() => navigation.getParent()?.navigate('AiChefChat')} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#FFFCFA',
+  },
   content: {
     width: '100%',
-    maxWidth: 720,
+    maxWidth: 760,
     alignSelf: 'center',
-    paddingTop: 16,
+    paddingTop: 14,
   },
-  header: {
-    marginBottom: 16,
+  heroWrap: {
+    marginTop: 16,
+  },
+  retentionWrap: {
+    marginTop: 14,
+  },
+  sectionHeading: {
+    marginTop: 22,
+    marginBottom: 11,
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 16,
+    gap: 10,
   },
-  headerCopy: {
-    flex: 1,
+  sectionBlock: {
+    marginTop: 24,
   },
-  greeting: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  title: {
-    marginTop: 4,
-    color: theme.colors.text,
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  search: {
-    marginBottom: 14,
-  },
-  quickStartBlock: {
-    paddingBottom: 16,
-  },
-  quickStartTitle: {
-    marginBottom: 10,
-    color: theme.colors.text,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 9,
-  },
-  quickAction: {
-    width: '48.5%',
-    minHeight: 42,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadow,
-    shadowOpacity: 0.03,
-  },
-  quickActionActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary,
-    ...theme.orangeShadow,
-    shadowOpacity: 0.12,
-  },
-  quickActionText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  quickActionTextActive: {
-    color: '#FFFFFF',
-  },
-  dynamicArea: {
-    gap: 14,
-  },
-  panelStack: {
-    gap: 14,
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  panelTitle: {
+  sectionTitle: {
     color: theme.colors.text,
     fontSize: 20,
     fontWeight: '900',
   },
-  panelSubtitle: {
+  sectionSubtitle: {
     marginTop: 4,
-    color: theme.colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  panelIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: theme.colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weeklyWrap: {
-    gap: 10,
-  },
-  expandButton: {
-    minHeight: 44,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandButtonText: {
-    color: theme.colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  marketCard: {
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    gap: 14,
-    ...theme.shadow,
-    shadowOpacity: 0.04,
-  },
-  marketList: {
-    gap: 9,
-  },
-  marketRow: {
-    minHeight: 56,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  marketCopy: {
-    flex: 1,
-  },
-  marketName: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  marketMeta: {
-    marginTop: 3,
     color: theme.colors.muted,
     fontSize: 11,
     fontWeight: '700',
   },
-  marketPrice: {
-    color: theme.colors.primary,
-    fontSize: 14,
+  sectionMeta: {
+    color: theme.colors.subtle,
+    fontSize: 11,
     fontWeight: '900',
   },
-  marketActions: {
+  demoLink: {
+    marginTop: 24,
+    minHeight: 70,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-  primaryAction: {
+  demoCopy: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  primaryActionText: {
-    color: '#FFFFFF',
+  demoTitle: {
+    color: theme.colors.primary,
     fontSize: 13,
     fontWeight: '900',
   },
-  secondaryAction: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryActionText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  marketHint: {
+  demoText: {
+    marginTop: 4,
     color: theme.colors.muted,
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '700',
-    textAlign: 'center',
-  },
-  favoritesWrap: {
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    gap: 14,
-    ...theme.shadow,
-    shadowOpacity: 0.04,
-  },
-  searchResults: {
-    marginTop: 18,
-  },
-  resultHeader: {
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  resultTitle: {
-    color: theme.colors.text,
-    fontSize: 19,
-    fontWeight: '900',
-  },
-  resultCount: {
-    color: theme.colors.subtle,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  resultList: {
-    gap: 12,
   },
 });

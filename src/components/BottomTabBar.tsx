@@ -1,10 +1,11 @@
-import { ComponentProps } from 'react';
+import { ComponentProps, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
 import { useAppStore } from '../store/useAppStore';
+import { HomeQuickCreateAction, HomeQuickCreateMenu } from './HomeQuickCreateMenu';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -17,15 +18,55 @@ const tabMeta: Record<string, { label: string; icon: IconName; activeIcon: IconN
 };
 
 export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const [quickMenuVisible, setQuickMenuVisible] = useState(false);
   const cartCount = useAppStore(
     (store) =>
       store.cart.reduce((sum, item) => sum + item.quantity, 0) +
       store.restaurantCart.reduce((sum, item) => sum + item.quantity, 0),
   );
+  const rootNavigation = navigation.getParent();
+  const quickActions: HomeQuickCreateAction[] = [
+    {
+      id: 'ingredient',
+      title: 'Malzeme ekle',
+      description: 'Dolabındaki ürünleri seçerek tarif eşleşmelerini güncelle.',
+      icon: 'add-circle-outline',
+      onPress: () => rootNavigation?.navigate('PantryVision'),
+    },
+    {
+      id: 'recipe',
+      title: 'Tarif oluştur',
+      description: 'Toplulukla paylaşmak için yeni bir tarif hazırla.',
+      icon: 'create-outline',
+      onPress: () => navigation.navigate('AddRecipe'),
+    },
+    {
+      id: 'camera',
+      title: 'Fotoğrafla ürün tanı',
+      description: 'Kamera demosuyla ürünlerini dolabına aktar.',
+      icon: 'camera-outline',
+      onPress: () => rootNavigation?.navigate('PantryVision'),
+    },
+    {
+      id: 'shopping',
+      title: 'Alışveriş listesi oluştur',
+      description: 'Eksik ürünleri Akıllı Sepet planına dönüştür.',
+      icon: 'basket-outline',
+      onPress: () => rootNavigation?.navigate('SmartBasket'),
+    },
+    {
+      id: 'chef',
+      title: 'AI Şef’e sor',
+      description: 'Bugün ne pişireceğine birlikte karar ver.',
+      icon: 'sparkles-outline',
+      onPress: () => rootNavigation?.navigate('AiChefChat'),
+    },
+  ];
 
   return (
-    <View style={styles.wrap}>
-      {state.routes.map((route, index) => {
+    <>
+      <View style={styles.wrap}>
+        {state.routes.map((route, index) => {
         const isFocused = state.index === index;
         const meta = tabMeta[route.name];
         const options = descriptors[route.key].options;
@@ -44,50 +85,57 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
           }
         };
 
-        if (route.name === 'AddRecipe') {
+          if (route.name === 'AddRecipe') {
+            return (
+              <Pressable
+                key={route.key}
+                onPress={() => setQuickMenuVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Hızlı aksiyon menüsünü aç"
+                style={({ pressed }) => [styles.addSlot, pressed && styles.pressed]}
+              >
+                <View style={styles.addButton}>
+                  <Ionicons name="add" size={34} color="#FFFFFF" />
+                </View>
+              </Pressable>
+            );
+          }
+
           return (
             <Pressable
               key={route.key}
               onPress={onPress}
               accessibilityRole="button"
+              accessibilityState={isFocused ? { selected: true } : {}}
               accessibilityLabel={accessibilityLabel}
-              style={({ pressed }) => [styles.addSlot, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
             >
-              <View style={styles.addButton}>
-                <Ionicons name="add" size={34} color="#FFFFFF" />
+              <View>
+                <Ionicons
+                  name={isFocused ? meta.activeIcon : meta.icon}
+                  size={24}
+                  color={isFocused ? theme.colors.primary : theme.colors.subtle}
+                />
+                {route.name === 'Cart' && cartCount > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{cartCount}</Text>
+                  </View>
+                ) : null}
               </View>
+              <Text style={[styles.label, isFocused && styles.activeLabel]} numberOfLines={1}>
+                {meta.label}
+              </Text>
             </Pressable>
           );
-        }
+        })}
+      </View>
 
-        return (
-          <Pressable
-            key={route.key}
-            onPress={onPress}
-            accessibilityRole="button"
-            accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={accessibilityLabel}
-            style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
-          >
-            <View>
-              <Ionicons
-                name={isFocused ? meta.activeIcon : meta.icon}
-                size={24}
-                color={isFocused ? theme.colors.primary : theme.colors.subtle}
-              />
-              {route.name === 'Cart' && cartCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{cartCount}</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.label, isFocused && styles.activeLabel]} numberOfLines={1}>
-              {meta.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+      <HomeQuickCreateMenu
+        visible={quickMenuVisible}
+        onClose={() => setQuickMenuVisible(false)}
+        actions={quickActions}
+      />
+    </>
   );
 }
 

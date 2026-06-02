@@ -13,6 +13,7 @@ import { PriceBreakdownCard } from '../../components/PriceBreakdownCard';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
 import { commerceMarketDemo } from '../../data/demoCommerce';
+import { demoMarketOptions } from '../../data/demoCheckout';
 import { demoSmartBasketMarket } from '../../data/demoSmartBasket';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { MainTabParamList, RootStackParamList } from '../../navigation/types';
@@ -34,10 +35,15 @@ export function CartScreen() {
   const removeRestaurantItem = useAppStore((store) => store.removeRestaurantItem);
   const clearRestaurantCart = useAppStore((store) => store.clearRestaurantCart);
   const [activeBasket, setActiveBasket] = useState<'market' | 'restaurant'>('market');
+  const [selectedMarketId, setSelectedMarketId] = useState(demoMarketOptions[0].id);
   const [address, setAddress] = useState('Saran Holding');
   const [feedback, setFeedback] = useState('');
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const selectedMarket =
+    demoMarketOptions.find((market) => market.id === selectedMarketId) ?? demoMarketOptions[0];
+  const adjustedTotal = total * selectedMarket.priceMultiplier;
+  const marketSavings = Math.max(0, total - adjustedTotal);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
   const restaurantCount = restaurantCart.reduce((sum, item) => sum + item.quantity, 0);
   const totalCount = count + restaurantCount;
@@ -49,8 +55,8 @@ export function CartScreen() {
     ? Math.max(...restaurantCart.map((item) => item.deliveryFee))
     : 0;
   const restaurantCommission = restaurantCart.reduce((sum, item) => sum + item.commissionEstimate, 0);
-  const deliveryFee = cart.length > 0 ? 29 : 0;
-  const grandTotal = total + deliveryFee;
+  const deliveryFee = cart.length > 0 ? selectedMarket.deliveryFee : 0;
+  const grandTotal = adjustedTotal + deliveryFee;
   const recipeCount = useMemo(() => new Set(cart.map((item) => item.recipeId)).size, [cart]);
   const smartBasketItems = useMemo(
     () => cart.filter((item) => item.source === 'smartBasket'),
@@ -82,7 +88,7 @@ export function CartScreen() {
       return;
     }
 
-    navigation.navigate('MarketCheckout');
+    navigation.navigate('MarketCheckout', { marketId: selectedMarket.id });
   };
 
   const handleClearCart = () => {
@@ -105,7 +111,7 @@ export function CartScreen() {
       return;
     }
 
-    navigation.navigate('MarketCheckout');
+    navigation.navigate('MarketCheckout', { marketId: selectedMarket.id });
   };
 
   const handleRestaurantConfirm = () => {
@@ -128,8 +134,12 @@ export function CartScreen() {
     <Screen scroll contentStyle={styles.content}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Sepetim</Text>
-          <Text style={styles.subtitle}>{totalCount} kalem</Text>
+          <Text style={styles.title}>TarifAL Sepet</Text>
+          <Text style={styles.subtitle}>
+            {activeBasket === 'market' && cart.length > 0
+              ? `Bu sepet ${recipeCount || 1} tarif için oluşturuldu.`
+              : `${totalCount} kalem`}
+          </Text>
         </View>
         {(activeBasket === 'market' ? cart.length : restaurantCart.length) > 0 ? (
           <TouchableOpacity onPress={handleClearCart} activeOpacity={0.85} style={styles.clearButton}>
@@ -260,7 +270,7 @@ export function CartScreen() {
         </View>
         <View style={styles.conversionStats}>
           <View style={styles.conversionStat}>
-            <Text style={styles.statValue}>₺{total.toFixed(0)}</Text>
+            <Text style={styles.statValue}>₺{adjustedTotal.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Tahmini sepet</Text>
           </View>
           <View style={styles.conversionStat}>
@@ -268,7 +278,7 @@ export function CartScreen() {
             <Text style={styles.statLabel}>Teslimat</Text>
           </View>
           <View style={styles.conversionStat}>
-            <Text style={styles.statValue}>Demo</Text>
+            <Text style={styles.statValue}>{selectedMarket.name}</Text>
             <Text style={styles.statLabel}>Market eşleşmesi</Text>
           </View>
         </View>
@@ -276,6 +286,43 @@ export function CartScreen() {
           <Ionicons name="sparkles" size={16} color="#FFFFFF" />
           <Text style={styles.transformButtonText}>Alışverişe Dönüştür</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.marketCompareCard}>
+        <View style={styles.marketCompareHeader}>
+          <View>
+            <Text style={styles.marketCompareTitle}>Demo market seçimi</Text>
+            <Text style={styles.marketCompareText}>Fiyat ve teslimat farkını siparişten önce karşılaştır.</Text>
+          </View>
+          <Ionicons name="storefront-outline" size={21} color={theme.colors.primary} />
+        </View>
+        <View style={styles.marketOptions}>
+          {demoMarketOptions.map((market) => {
+            const selected = market.id === selectedMarket.id;
+            return (
+              <TouchableOpacity
+                key={market.id}
+                onPress={() => {
+                  setSelectedMarketId(market.id);
+                  showToast(`${market.name} demo market olarak seçildi.`, 'info');
+                }}
+                activeOpacity={0.84}
+                style={[styles.marketOption, selected && styles.marketOptionActive]}
+              >
+                <Text style={[styles.marketOptionName, selected && styles.marketOptionNameActive]}>{market.name}</Text>
+                <Text style={styles.marketOptionMeta}>{market.deliveryEstimate}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.marketSaving}>
+          <Ionicons name="pricetag-outline" size={16} color={theme.colors.primary} />
+          <Text style={styles.marketSavingText}>
+            {selectedMarket.id === 'a101'
+              ? `A101 seçimiyle yaklaşık ₺${Math.max(18, Math.round(marketSavings))} tasarruf edebilirsin.`
+              : 'A101 seçersen yaklaşık ₺18 daha ucuz bir sepet oluşturabilirsin.'}
+          </Text>
+        </View>
       </View>
 
       {hasSmartBasketItems ? (
@@ -376,7 +423,7 @@ export function CartScreen() {
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Ürün toplamı</Text>
-          <Text style={styles.summaryValue}>₺{total.toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>₺{adjustedTotal.toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Tahmini teslimat</Text>
@@ -390,7 +437,7 @@ export function CartScreen() {
       </View>
 
       <AppButton
-        title="Akıllı Siparişe Geç"
+        title="Akıllı Siparişi Tamamla"
         icon="bag-check"
         onPress={handleConfirm}
         disabled={cart.length === 0}
@@ -430,6 +477,9 @@ export function CartScreen() {
 
 const styles = StyleSheet.create({
   content: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     paddingTop: 24,
   },
   header: {
@@ -733,6 +783,86 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 10,
     fontWeight: '800',
+  },
+  marketCompareCard: {
+    marginTop: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.04,
+  },
+  marketCompareHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  marketCompareTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  marketCompareText: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  marketOptions: {
+    flexDirection: 'row',
+    gap: 7,
+  },
+  marketOption: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marketOptionActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
+  },
+  marketOptionName: {
+    color: theme.colors.text,
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  marketOptionNameActive: {
+    color: theme.colors.primary,
+  },
+  marketOptionMeta: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  marketSaving: {
+    minHeight: 38,
+    borderRadius: 19,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  marketSavingText: {
+    flex: 1,
+    color: theme.colors.primary,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
   },
   list: {
     marginTop: 20,

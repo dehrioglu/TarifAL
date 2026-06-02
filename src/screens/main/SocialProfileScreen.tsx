@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CollectionCard } from '../../components/CollectionCard';
 import { CommentList } from '../../components/CommentList';
 import { FeedRecipeCard } from '../../components/FeedRecipeCard';
 import { FollowButton } from '../../components/FollowButton';
 import { ProfileAchievementCards } from '../../components/ProfileAchievementCards';
+import { ProfileCollectionShowcase } from '../../components/profile/ProfileCollectionShowcase';
 import { UserAvatar } from '../../components/UserAvatar';
 import { theme } from '../../constants/theme';
 import { enhancedSocialCollections } from '../../data/mockCollections';
@@ -19,6 +19,8 @@ import {
 } from '../../data/mockSocial';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { getTasteCategoriesFromText } from '../../personalization/tasteProfileStore';
+import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
 import { SocialRecipePost, SocialUser } from '../../types';
 
@@ -49,6 +51,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
   const toggleCommentLike = useAppStore((store) => store.toggleCommentLike);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
   const { showToast, showDemoModal } = useFeedback();
+  const { recordChefFollow, recordInterest } = useUserTasteProfile();
 
   const currentSocialUser: SocialUser = useMemo(
     () => ({
@@ -99,6 +102,10 @@ export function SocialProfileScreen({ navigation, route }: Props) {
   ];
 
   const openRecipe = (postId: string, recipeId: string) => {
+    const post = socialPosts.find((item) => item.id === postId);
+    if (post) {
+      recordInterest(getTasteCategoriesFromText(post.title, post.category, post.tags.join(' ')), 1);
+    }
     navigation.navigate('RecipeDetail', { recipeId, socialPostId: postId });
   };
 
@@ -140,14 +147,23 @@ export function SocialProfileScreen({ navigation, route }: Props) {
             onOpenRecipe={() => openRecipe(post.id, post.recipeId)}
             onOpenProfile={() => undefined}
             onToggleLike={() => {
+              if (!socialLikes[post.id]) {
+                recordInterest(getTasteCategoriesFromText(post.title, post.category, post.tags.join(' ')), 3);
+              }
               toggleSocialLike(post.id);
               showToast(socialLikes[post.id] ? 'Begeniden cikarildi.' : 'Tarif begenildi.');
             }}
             onToggleSave={() => {
+              if (!socialSaves[post.id]) {
+                recordInterest(getTasteCategoriesFromText(post.title, post.category, post.tags.join(' ')), 5);
+              }
               toggleSocialSave(post.id);
               showToast(socialSaves[post.id] ? 'Kaydedilenlerden cikarildi.' : 'Tarif kaydedildi.');
             }}
             onToggleFollow={() => {
+              if (!followedUsers[post.authorId]) {
+                recordChefFollow(usersById[post.authorId] ?? user);
+              }
               toggleFollowUser(post.authorId);
               showToast(followedUsers[post.authorId] ? 'Takip birakildi.' : 'Takip ediliyor.');
             }}
@@ -206,6 +222,9 @@ export function SocialProfileScreen({ navigation, route }: Props) {
             <FollowButton
               following={Boolean(followedUsers[user.id])}
               onPress={() => {
+                if (!followedUsers[user.id]) {
+                  recordChefFollow(user);
+                }
                 toggleFollowUser(user.id);
                 showToast(followedUsers[user.id] ? 'Takip birakildi.' : `${user.name} takip ediliyor.`);
               }}
@@ -289,15 +308,12 @@ export function SocialProfileScreen({ navigation, route }: Props) {
         ) : null}
         {activeTab === 'liked' ? renderPosts(savedPosts) : null}
         {activeTab === 'collections' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collectionRow}>
-            {enhancedSocialCollections.map((collection) => (
-              <CollectionCard
-                key={collection.id}
-                collection={collection}
-                onPress={() => navigation.navigate('CollectionDetail', { collectionId: collection.id })}
-              />
-            ))}
-          </ScrollView>
+          <View style={styles.collectionShowcase}>
+            <ProfileCollectionShowcase
+              collections={enhancedSocialCollections}
+              onOpenCollection={(collectionId) => navigation.navigate('CollectionDetail', { collectionId })}
+            />
+          </View>
         ) : null}
         {activeTab === 'about' ? (
           <View style={styles.aboutCard}>
@@ -337,6 +353,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   content: {
+    width: '100%',
+    maxWidth: 820,
+    alignSelf: 'center',
     paddingBottom: 110,
   },
   cover: {
@@ -582,9 +601,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  collectionRow: {
-    gap: 10,
-    paddingHorizontal: theme.screen.padding,
+  collectionShowcase: {
+    marginHorizontal: theme.screen.padding,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
   },
   commentsCard: {
     marginHorizontal: theme.screen.padding,

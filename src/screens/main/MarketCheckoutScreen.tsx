@@ -29,12 +29,12 @@ const formatPrice = (value: number) => `₺${value.toFixed(0)}`;
 const getRecipeCount = (items: CartItem[]) =>
   new Set(items.map((item) => item.recipeId).filter((id) => id !== 'family-list')).size;
 
-export function MarketCheckoutScreen({ navigation }: Props) {
+export function MarketCheckoutScreen({ navigation, route }: Props) {
   const cart = useAppStore((store) => store.cart);
   const placeOrder = useAppStore((store) => store.placeOrder);
   const { showToast, showDemoModal } = useFeedback();
   const [address, setAddress] = useState('Saran Holding');
-  const [selectedMarketId, setSelectedMarketId] = useState(demoMarketOptions[0].id);
+  const [selectedMarketId, setSelectedMarketId] = useState(route.params?.marketId ?? demoMarketOptions[0].id);
   const [selectedSlotId, setSelectedSlotId] = useState(demoDeliverySlots[0].id);
   const [selectedPaymentId, setSelectedPaymentId] = useState(demoPaymentMethods[0].id);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +48,8 @@ export function MarketCheckoutScreen({ navigation }: Props) {
   const selectedPayment =
     demoPaymentMethods.find((payment) => payment.id === selectedPaymentId) ?? demoPaymentMethods[0];
 
-  const subtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const rawSubtotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = rawSubtotal * selectedMarket.priceMultiplier;
   const itemCount = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
   const recipeCount = useMemo(() => getRecipeCount(checkoutItems), [checkoutItems]);
   const commissionEstimate = Math.max(18, Math.round(subtotal * selectedMarket.commissionRate));
@@ -82,9 +83,16 @@ export function MarketCheckoutScreen({ navigation }: Props) {
         commissionEstimate,
         averageBasket: demoCheckoutMetrics.averageBasket,
         conversionRate: demoCheckoutMetrics.conversionRate,
+        marketPriceMultiplier: selectedMarket.priceMultiplier,
       });
       setConfirmedOrder(order);
       showToast('Demo sipariş onaylandı. Sipariş takip ekranı hazır.', 'info');
+      showDemoModal({
+        title: 'Akıllı siparişin hazır',
+        message:
+          'Demo market siparişin başarıyla simüle edildi. Gerçek ödeme alınmadı; takip akışından ürünlerin mutfağına gelişini inceleyebilirsin.',
+        primaryLabel: 'Sipariş Takibini Gör',
+      });
     } catch (error) {
       showDemoModal({
         title: 'Sipariş tamamlanamadı',

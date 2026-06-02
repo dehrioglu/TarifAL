@@ -443,7 +443,7 @@ export const demoRecipes: Recipe[] = [
     calories: 540,
     difficulty: 'Orta',
     tags: ['tatlı', 'peynirli', 'özel gün'],
-    goalTypes: ['pratik_yemek'],
+    goalTypes: [],
   }),
   recipe({
     id: 'recipe-icli-kofte',
@@ -491,7 +491,7 @@ export const demoRecipes: Recipe[] = [
     calories: 760,
     difficulty: 'Zor',
     tags: ['davet', 'fırın', 'gösterişli', 'aile boyu'],
-    goalTypes: ['pratik_yemek'],
+    goalTypes: [],
   }),
   recipe({
     id: 'recipe-baklava',
@@ -507,7 +507,7 @@ export const demoRecipes: Recipe[] = [
     calories: 690,
     difficulty: 'Zor',
     tags: ['tatlı', 'bayram', 'usta işi', 'özel gün'],
-    goalTypes: ['pratik_yemek'],
+    goalTypes: [],
   }),
   recipe({
     id: 'recipe-deniz-mahsullu-risotto',

@@ -18,12 +18,24 @@ export function CollectionDetailScreen({ navigation, route }: Props) {
   const collectionSaves = useAppStore((store) => store.collectionSaves);
   const toggleLike = useAppStore((store) => store.toggleLike);
   const toggleCollectionSave = useAppStore((store) => store.toggleCollectionSave);
-  const { showToast } = useFeedback();
+  const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
+  const { showToast, showDemoModal } = useFeedback();
   const collection =
     enhancedSocialCollections.find((item) => item.id === route.params.collectionId) ??
     enhancedSocialCollections[0];
   const collectionRecipes = recipes.filter((recipe) => collection.recipeIds.includes(recipe.id));
   const saved = Boolean(collectionSaves[collection.id]);
+
+  const addCollectionToCart = () => {
+    collectionRecipes.forEach((recipe) => addMissingIngredientsToCart(recipe.id));
+    showDemoModal({
+      title: 'Koleksiyon TarifAL Sepet’e aktarıldı',
+      message: `${collection.title} koleksiyonundaki ${collectionRecipes.length} tarifin eksikleri demo market sepetine eklendi.`,
+      primaryLabel: 'Sepete Git',
+      secondaryLabel: 'Koleksiyonda Kal',
+      onPrimary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+    });
+  };
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -79,6 +91,27 @@ export function CollectionDetailScreen({ navigation, route }: Props) {
           />
         ))}
       </ScrollView>
+
+      <View style={styles.commercialCard}>
+        <View style={styles.commercialIcon}>
+          <Ionicons name="basket-outline" size={21} color={theme.colors.primary} />
+        </View>
+        <View style={styles.commercialCopy}>
+          <Text style={styles.commercialTitle}>Bu koleksiyonu sofraya dönüştür</Text>
+          <Text style={styles.commercialText}>
+            Eksik malzemeleri birleştirerek TarifAL Sepet’e aktar.
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={addCollectionToCart}
+          activeOpacity={0.84}
+          accessibilityRole="button"
+          accessibilityLabel="Koleksiyon eksiklerini sepete ekle"
+          style={styles.cartButton}
+        >
+          <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </Screen>
   );
 }
@@ -186,5 +219,48 @@ const styles = StyleSheet.create({
   },
   recipeRow: {
     gap: 12,
+  },
+  commercialCard: {
+    marginTop: 20,
+    minHeight: 82,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  commercialIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commercialCopy: {
+    flex: 1,
+  },
+  commercialTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  commercialText: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  cartButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

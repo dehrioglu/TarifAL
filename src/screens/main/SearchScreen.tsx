@@ -13,6 +13,7 @@ import { enhancedSocialCollections } from '../../data/mockCollections';
 import { mockSocialUsers } from '../../data/mockSocial';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Search'>;
@@ -38,6 +39,7 @@ export function SearchScreen({ navigation }: Props) {
   const toggleLike = useAppStore((store) => store.toggleLike);
   const toggleFollowUser = useAppStore((store) => store.toggleFollowUser);
   const { showToast } = useFeedback();
+  const { recordChefFollow, recordRecipeInteraction, recordTagInteraction } = useUserTasteProfile();
   const normalizedQuery = normalize(query.trim());
 
   const recipeResults = useMemo(
@@ -112,8 +114,16 @@ export function SearchScreen({ navigation }: Props) {
               key={recipe.id}
               recipe={recipe}
               liked={Boolean(likes[recipe.id])}
-              onPress={() => navigation.navigate('RecipeDetail', { recipeId: recipe.id })}
-              onToggleLike={() => toggleLike(recipe.id)}
+              onPress={() => {
+                recordRecipeInteraction(recipe, 'view');
+                navigation.navigate('RecipeDetail', { recipeId: recipe.id });
+              }}
+              onToggleLike={() => {
+                if (!likes[recipe.id]) {
+                  recordRecipeInteraction(recipe, 'like');
+                }
+                toggleLike(recipe.id);
+              }}
               variant="mini"
             />
           ))}
@@ -129,6 +139,9 @@ export function SearchScreen({ navigation }: Props) {
               following={Boolean(followedUsers[user.id])}
               onPress={() => navigation.navigate('SocialProfile', { userId: user.id })}
               onToggleFollow={() => {
+                if (!followedUsers[user.id]) {
+                  recordChefFollow(user);
+                }
                 toggleFollowUser(user.id);
                 showToast(followedUsers[user.id] ? 'Takip bırakıldı.' : `${user.name} takip ediliyor.`);
               }}
@@ -140,7 +153,15 @@ export function SearchScreen({ navigation }: Props) {
       {activeTab === 'tags' ? (
         <View style={styles.tagGrid}>
           {tagResults.map((tag) => (
-            <TouchableOpacity key={tag} onPress={() => setQuery(tag)} activeOpacity={0.86} style={styles.tag}>
+            <TouchableOpacity
+              key={tag}
+              onPress={() => {
+                setQuery(tag);
+                recordTagInteraction(tag);
+              }}
+              activeOpacity={0.86}
+              style={styles.tag}
+            >
               <Text style={styles.tagText}>#{tag}</Text>
             </TouchableOpacity>
           ))}

@@ -8,11 +8,16 @@ import { BrandLogo } from '../../components/BrandLogo';
 import { FavoriteRecipesSection } from '../../components/FavoriteRecipesSection';
 import { GamificationCard } from '../../components/GamificationCard';
 import { InvestorDemoPanel } from '../../components/InvestorDemoPanel';
+import { ProfileAchievementCards } from '../../components/ProfileAchievementCards';
+import { ProfileCollectionShowcase } from '../../components/profile/ProfileCollectionShowcase';
 import { RecipeCard } from '../../components/RecipeCard';
+import { DailyReturnCard } from '../../components/retention/DailyReturnCard';
 import { Screen } from '../../components/Screen';
 import { UserGoalSelector } from '../../components/UserGoalSelector';
 import { theme } from '../../constants/theme';
+import { enhancedSocialCollections } from '../../data/mockCollections';
 import { useFeedback } from '../../feedback/FeedbackProvider';
+import { useDailyReturn } from '../../retention/useDailyReturn';
 import { useAppStore } from '../../store/useAppStore';
 import { FavoriteListType, UserGoal } from '../../types';
 
@@ -39,11 +44,13 @@ export function ProfileScreen() {
   const userGoal = useAppStore((store) => store.userGoal);
   const recipeLists = useAppStore((store) => store.recipeLists);
   const triedRecipes = useAppStore((store) => store.triedRecipes);
+  const collectionSaves = useAppStore((store) => store.collectionSaves);
   const toggleLike = useAppStore((store) => store.toggleLike);
   const setUserGoal = useAppStore((store) => store.setUserGoal);
   const signOut = useAppStore((store) => store.signOut);
   const requestGuidedTourReplay = useAppStore((store) => store.requestGuidedTourReplay);
   const { showToast, showDemoModal } = useFeedback();
+  const { streak, completedToday, completeDailyAction } = useDailyReturn();
 
   const myRecipes = useMemo(
     () => recipes.filter((recipe) => recipe.createdBy === user?.id),
@@ -91,6 +98,17 @@ export function ProfileScreen() {
     setUserGoal(goal);
     showToast(`Hedef güncellendi: ${goal}`, 'info');
   };
+
+  const openCollection = (collectionId: string) => {
+    navigation.getParent()?.navigate('CollectionDetail', { collectionId });
+  };
+
+  const achievements = [
+    'TarifAL Onaylı kurucu profil',
+    `${Math.max(2, recipeLists.cookedBefore.length)} tarif mutfak geçmişinde`,
+    `${Math.max(3, likedRecipes.length)} tarif koleksiyonlara ilham verdi`,
+    `${streak} günlük mutfak serisi`,
+  ];
 
   const confirmSignOut = () => {
     showDemoModal({
@@ -165,6 +183,36 @@ export function ProfileScreen() {
         </View>
       </View>
 
+      <View style={styles.retentionWrap}>
+        <DailyReturnCard
+          streak={streak}
+          completedToday={completedToday}
+          onPress={() => {
+            void completeDailyAction();
+            navigation.navigate('Explore');
+            showToast('Sana özel keşif akışı açıldı.', 'info');
+          }}
+          compact
+        />
+      </View>
+
+      <View style={styles.premiumSection}>
+        <View style={styles.premiumSectionHeader}>
+          <Text style={styles.premiumSectionTitle}>Profil başarıların</Text>
+          <Text style={styles.premiumSectionMeta}>Bu hafta</Text>
+        </View>
+        <ProfileAchievementCards achievements={achievements} />
+      </View>
+
+      <View style={styles.premiumSection}>
+        <ProfileCollectionShowcase
+          collections={enhancedSocialCollections.slice(0, 6)}
+          savedIds={collectionSaves}
+          onOpenCollection={openCollection}
+          onOpenAll={() => setActiveTab('collections')}
+        />
+      </View>
+
       <View style={styles.goalWrap}>
         <GamificationCard />
       </View>
@@ -186,6 +234,14 @@ export function ProfileScreen() {
         icon="people-outline"
         variant="soft"
         onPress={openFamilyAccount}
+        style={styles.tourButton}
+      />
+
+      <AppButton
+        title="Bildirim Merkezini Aç"
+        icon="notifications-outline"
+        variant="soft"
+        onPress={() => navigation.getParent()?.navigate('Activity')}
         style={styles.tourButton}
       />
 
@@ -230,21 +286,33 @@ export function ProfileScreen() {
       </View>
 
       {activeTab === 'collections' ? (
-        <FavoriteRecipesSection
-          active={favoriteTab}
-          onChange={setFavoriteTab}
-          recipes={favoriteRecipes}
-          likedIds={likes}
-          onOpenRecipe={openRecipe}
-          onToggleLike={toggleLike}
-        />
-      ) : activeTab === 'activity' ? (
-        <View style={styles.empty}>
-          <Ionicons name="pulse-outline" size={30} color={theme.colors.primary} />
-          <Text style={styles.emptyText}>
-            Bugün {likedRecipes.length} tarif kaydettin, {triedRecipeCards.length} tarifi denedin ve {cartCount} ürünü sepete taşıdın.
+        <View style={styles.collectionTab}>
+          <ProfileCollectionShowcase
+            collections={enhancedSocialCollections}
+            savedIds={collectionSaves}
+            onOpenCollection={openCollection}
+          />
+          <Text style={styles.collectionHelper}>
+            Koleksiyonları açarak tarifleri inceleyebilir veya tek dokunuşla kaydedebilirsin.
           </Text>
         </View>
+      ) : activeTab === 'activity' ? (
+        <TouchableOpacity
+          onPress={() => navigation.getParent()?.navigate('Activity')}
+          activeOpacity={0.84}
+          style={styles.activityPreview}
+        >
+          <View style={styles.activityPreviewIcon}>
+            <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
+          </View>
+          <View style={styles.activityPreviewCopy}>
+            <Text style={styles.activityPreviewTitle}>Günlük aktivite merkezini aç</Text>
+            <Text style={styles.activityPreviewText}>
+              Kaydetmeler, şef paylaşımları ve TarifAL Bot önerileri burada seni bekliyor.
+            </Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={theme.colors.primary} />
+        </TouchableOpacity>
       ) : visibleRecipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="heart-outline" size={30} color={theme.colors.subtle} />
@@ -376,6 +444,36 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
   },
+  retentionWrap: {
+    marginTop: 14,
+  },
+  premiumSection: {
+    marginTop: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.03,
+  },
+  premiumSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  premiumSectionTitle: {
+    color: theme.colors.text,
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  premiumSectionMeta: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+  },
   socialIdentityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -478,6 +576,56 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: theme.colors.muted,
+    fontWeight: '700',
+  },
+  collectionTab: {
+    marginTop: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 12,
+  },
+  collectionHelper: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  activityPreview: {
+    marginTop: 18,
+    minHeight: 88,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  activityPreviewIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityPreviewCopy: {
+    flex: 1,
+  },
+  activityPreviewTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  activityPreviewText: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '700',
   },
   sectionHeader: {

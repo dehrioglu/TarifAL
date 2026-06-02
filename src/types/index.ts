@@ -217,6 +217,8 @@ export type DemoMarketOption = {
   serviceFee: number;
   rating: number;
   commissionRate: number;
+  priceMultiplier: number;
+  priceHint: string;
 };
 
 export type DemoDeliverySlot = {
@@ -250,6 +252,7 @@ export type PlaceOrderOptions = {
   commissionEstimate?: number;
   averageBasket?: number;
   conversionRate?: number;
+  marketPriceMultiplier?: number;
 };
 
 export type Order = {

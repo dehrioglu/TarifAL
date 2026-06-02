@@ -103,6 +103,7 @@ type AppState = {
   toggleChallengeJoin: (postId: string) => void;
   addTriedRecipe: (payload: Omit<TriedRecipePost, 'id' | 'userId' | 'createdAt'>) => void;
   markNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: (notificationIds: string[]) => void;
   toggleCollectionSave: (collectionId: string) => void;
   addFamilyShoppingItem: (item: Omit<FamilyShoppingItem, 'id' | 'checked'>) => void;
   toggleFamilyShoppingItem: (itemId: string) => void;
@@ -728,6 +729,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  markAllNotificationsRead: (notificationIds) => {
+    set((state) => ({
+      readNotifications: notificationIds.reduce<Record<string, boolean>>(
+        (next, notificationId) => {
+          next[notificationId] = true;
+          return next;
+        },
+        { ...state.readNotifications },
+      ),
+    }));
+  },
+
   toggleCollectionSave: (collectionId) => {
     set((state) => ({
       collectionSaves: {
@@ -1133,7 +1146,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw new Error('Teslimat adresi gerekli.');
     }
 
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal =
+      cart.reduce((sum, item) => sum + item.price * item.quantity, 0) *
+      (options?.marketPriceMultiplier ?? 1);
     const deliveryFee = options?.deliveryFee ?? 0;
     const serviceFee = options?.serviceFee ?? 0;
     const total = subtotal + deliveryFee + serviceFee;

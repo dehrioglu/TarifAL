@@ -27,6 +27,7 @@ type SocialPostCardProps = {
   onOrderReadyMeal: () => void;
   onComment: () => void;
   onShare: () => void;
+  onTagPress?: (tag: string) => void;
   onVotePoll: (optionId: string) => void;
   onToggleChallenge: () => void;
   onTried: () => void;
@@ -61,6 +62,7 @@ export function SocialPostCard({
   onOrderReadyMeal,
   onComment,
   onShare,
+  onTagPress,
   onVotePoll,
   onToggleChallenge,
   onTried,
@@ -115,7 +117,9 @@ export function SocialPostCard({
       <View style={styles.body}>
         <View style={styles.tags}>
           {post.tags.slice(0, 4).map((tag) => (
-            <Text key={tag} style={styles.tag}>#{tag}</Text>
+            <TouchableOpacity key={tag} onPress={() => onTagPress?.(tag)} activeOpacity={0.8}>
+              <Text style={styles.tag}>#{tag}</Text>
+            </TouchableOpacity>
           ))}
         </View>
 

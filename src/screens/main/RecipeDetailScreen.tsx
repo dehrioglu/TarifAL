@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,6 @@ import { FollowButton } from '../../components/FollowButton';
 import { IngredientImageItem } from '../../components/IngredientImageItem';
 import { IngredientCard } from '../../components/IngredientCard';
 import { MarketBasketSummary } from '../../components/MarketBasketSummary';
-import { MissingIngredientsBox } from '../../components/MissingIngredientsBox';
 import { RecipePurchaseOptions } from '../../components/RecipePurchaseOptions';
 import { RestaurantOrderOptions } from '../../components/RestaurantOrderOptions';
 import { DecisionPreference, SmartDecisionCard } from '../../components/SmartDecisionCard';
@@ -20,6 +19,10 @@ import { ShareRecipeModal } from '../../components/ShareRecipeModal';
 import { TriedRecipeModal } from '../../components/TriedRecipeModal';
 import { UserAvatar } from '../../components/UserAvatar';
 import { VoiceKitchenMode } from '../../components/VoiceKitchenMode';
+import { MissingItemsCartCard } from '../../components/recipe/MissingItemsCartCard';
+import { RecipeCompatibilityCard } from '../../components/recipe/RecipeCompatibilityCard';
+import { RecipeHero } from '../../components/recipe/RecipeHero';
+import { SmartIngredientGroups } from '../../components/recipe/SmartIngredientGroups';
 import { theme } from '../../constants/theme';
 import {
   commerceMarketDemo,
@@ -30,11 +33,36 @@ import {
 import { formatFollowerCount, mockSocialUsers } from '../../data/mockSocial';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
-import { IngredientBrandOption, MarketAlternative, PurchaseMode, RestaurantOption, SocialUser } from '../../types';
+import { Ingredient, IngredientBrandOption, MarketAlternative, PurchaseMode, RestaurantOption, SocialUser } from '../../types';
 import { getRecipeCost, getRecipeMatch, parsePantryText } from '../../utils/recipeMatching';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
+
+const getAlternativeSuggestions = (missingIngredients: Ingredient[]) => {
+  const missingNames = missingIngredients.map((ingredient) => ingredient.name.toLocaleLowerCase('tr-TR'));
+  const suggestions: string[] = [];
+
+  if (missingNames.some((name) => name.includes('krema'))) {
+    suggestions.push('Krema yoksa yoğurt kullanabilirsin.');
+  }
+  if (missingNames.some((name) => name.includes('parmesan'))) {
+    suggestions.push('Parmesan yerine kaşar peyniri tercih edebilirsin.');
+  }
+  if (missingNames.some((name) => name.includes('tereyağı'))) {
+    suggestions.push('Tereyağı yerine zeytinyağıyla daha hafif bir sonuç elde edebilirsin.');
+  }
+  if (missingNames.some((name) => name.includes('tavuk'))) {
+    suggestions.push('Tavuk yerine hindi eti kullanarak aynı tarifi hazırlayabilirsin.');
+  }
+
+  if (suggestions.length === 0) {
+    suggestions.push('Benzer ürünleri TarifAL Sepet’te marka ve fiyatlarına göre karşılaştırabilirsin.');
+  }
+
+  return suggestions.slice(0, 2);
+};
 
 export function RecipeDetailScreen({ navigation, route }: Props) {
   const [cookingVisible, setCookingVisible] = useState(false);
@@ -47,6 +75,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   const [selectedBrands, setSelectedBrands] = useState<Record<string, string>>({});
   const [brandSelectorIngredientId, setBrandSelectorIngredientId] = useState<string>();
   const { showToast, showDemoModal } = useFeedback();
+  const { recordChefFollow, recordRecipeInteraction, recordTagInteraction } = useUserTasteProfile();
   const insets = useSafeAreaInsets();
   const recipe = useAppStore((store) =>
     store.recipes.find((item) => item.id === route.params.recipeId),
@@ -58,7 +87,6 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   const addIngredientToCart = useAppStore((store) => store.addIngredientToCart);
   const addRestaurantMealToCart = useAppStore((store) => store.addRestaurantMealToCart);
   const addRecipeToCart = useAppStore((store) => store.addRecipeToCart);
-  const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
   const socialComments = useAppStore((store) => store.socialComments);
   const socialPostStats = useAppStore((store) => store.socialPostStats);
   const socialPosts = useAppStore((store) => store.socialPosts);
@@ -116,6 +144,12 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     }
   }, [route.params.purchaseMode]);
 
+  useEffect(() => {
+    if (recipe) {
+      recordRecipeInteraction(recipe, 'view');
+    }
+  }, [recipe, recordRecipeInteraction]);
+
   if (!recipe || !match) {
     return (
       <View style={styles.empty}>
@@ -163,6 +197,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     (item) => item.ingredient.id === brandSelectorIngredientId,
   );
   const restaurantOptions = getRestaurantsForRecipe(recipe.id);
+  const alternativeSuggestions = getAlternativeSuggestions(match.missingIngredients);
 
   const handleAddIngredient = (ingredientId: string, alternative?: MarketAlternative) => {
     const ingredient = recipe.ingredients.find((item) => item.id === ingredientId);
@@ -246,14 +281,28 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   };
 
   const handleAddMissing = () => {
-    addMissingIngredientsToCart(recipe.id);
+    if (marketBasketIngredients.length === 0) {
+      showToast('Dolabın hazır. Bu tarif için eksik ürün görünmüyor.', 'info');
+      return;
+    }
+
+    marketBasketIngredients.forEach(({ ingredient, selectedBrand }) => {
+      addIngredientToCart(recipe, ingredient, {
+        id: selectedBrand.id,
+        name: selectedBrand.name,
+        gram: ingredient.gram,
+        price: selectedBrand.price,
+        note: `${selectedBrand.size} • ${selectedBrand.quality}`,
+      });
+    });
+
     showDemoModal({
-      title: 'Eksikler akıllı sepette',
-      message: `${recipe.title} için eksik ürünler sepete eklendi. İstersen şimdi demo market sipariş akışına geçebilirsin.`,
-      primaryLabel: 'Akıllı Siparişe Geç',
-      secondaryLabel: 'Sepete Git',
-      onPrimary: () => navigation.navigate('MarketCheckout'),
-      onSecondary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+      title: 'Eksikler TarifAL Sepet’te',
+      message: `${marketBasketIngredients.length} ürün TarifAL Sepet’e eklendi. Market toplamı seçili markalara göre ₺${marketTotal.toFixed(2)} olarak hazırlandı.`,
+      primaryLabel: 'Sepete Git',
+      secondaryLabel: 'Pişirme Moduna Geç',
+      onPrimary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
+      onSecondary: () => setCookingVisible(true),
     });
   };
 
@@ -263,11 +312,17 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   };
 
   const handleToggleLike = () => {
+    if (!liked) {
+      recordRecipeInteraction(recipe, 'like');
+    }
     toggleLike(recipe.id);
     showToast(liked ? 'Favorilerden çıkarıldı.' : 'Favorilere eklendi.');
   };
 
   const handleCookLater = () => {
+    if (!savedForLater) {
+      recordRecipeInteraction(recipe, 'save');
+    }
     toggleRecipeList('cookLater', recipe.id);
     showToast(savedForLater ? 'Sonra pişireceğim listesinden çıkarıldı.' : 'Sonra pişireceğim listesine eklendi.');
   };
@@ -278,6 +333,9 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     }
 
     const following = Boolean(followedUsers[socialAuthor.id]);
+    if (!following) {
+      recordChefFollow(socialAuthor);
+    }
     toggleFollowUser(socialAuthor.id);
     showToast(following ? 'Takip bırakıldı.' : `${socialAuthor.name} takip ediliyor.`);
   };
@@ -289,6 +347,7 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     }
 
     addSocialComment(socialPost.id, text);
+    recordRecipeInteraction(recipe, 'comment');
     showToast('Yorum eklendi.');
   };
 
@@ -312,10 +371,15 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
     toggleRecipeList('cookedBefore', recipe.id);
     showDemoModal({
       title: 'Afiyet olsun!',
-      message: `${recipe.title} tamamlandı ve mutfak geçmişine eklendi. İstersen benzer tarifleri AI Şef ile keşfedebilirsin.`,
-      primaryLabel: 'Benzer Tarif Öner',
-      secondaryLabel: 'Ana Sayfa',
-      onPrimary: () => navigation.navigate('AiChefChat'),
+      message: `${recipe.title} tamamlandı ve mutfak geçmişine eklendi. Bu tarifi favorilerine de eklemek ister misin?`,
+      primaryLabel: liked ? 'Favorilerde' : 'Favorilere Ekle',
+      secondaryLabel: 'Ana Sayfaya Dön',
+      onPrimary: () => {
+        if (!liked) {
+          toggleLike(recipe.id);
+          showToast('Tarif favorilerine eklendi.');
+        }
+      },
       onSecondary: () => navigation.navigate('MainTabs', { screen: 'Home' }),
     });
   };
@@ -323,22 +387,15 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
   return (
     <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <ImageBackground source={{ uri: recipe.imageUrl }} style={styles.hero} imageStyle={styles.heroImage}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.86}
-            style={[styles.floatingButton, styles.backButton, { top: insets.top + 12 }]}
-          >
-            <Ionicons name="chevron-back" size={28} color={theme.colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleToggleLike}
-            activeOpacity={0.86}
-            style={[styles.floatingButton, styles.likeButton, { top: insets.top + 12 }]}
-          >
-            <Ionicons name={liked ? 'heart' : 'heart-outline'} size={26} color={liked ? theme.colors.primary : theme.colors.text} />
-          </TouchableOpacity>
-        </ImageBackground>
+        <RecipeHero
+          recipe={recipe}
+          matchPercent={match.matchPercent}
+          missingCount={match.missingIngredients.length}
+          liked={liked}
+          safeTop={insets.top}
+          onBack={() => navigation.goBack()}
+          onToggleLike={handleToggleLike}
+        />
 
         <View style={styles.body}>
           <View style={styles.categoryBadge}>
@@ -347,6 +404,9 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
           <Text style={styles.title}>{recipe.title}</Text>
           <Text style={styles.meta}>❤ {recipe.likes} beğeni  •  {recipe.createdByName}</Text>
           <Text style={styles.description}>{recipe.description}</Text>
+          <Text style={styles.compatibilityLead}>
+            Evindeki {match.matchedIngredients.length} malzemeyle yapılabilir, sadece {match.missingIngredients.length} ürün eksik.
+          </Text>
 
           {socialPost && socialAuthor ? (
             <View style={styles.socialAuthorCard}>
@@ -541,36 +601,41 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
 
           <View style={styles.tagRow}>
             {recipe.tags.map((tag) => (
-              <View key={tag} style={styles.tag}>
+              <TouchableOpacity
+                key={tag}
+                onPress={() => {
+                  recordTagInteraction(tag);
+                  showToast(`#${tag} ilgi alanlarına eklendi.`, 'info');
+                }}
+                activeOpacity={0.8}
+                style={styles.tag}
+              >
                 <Text style={styles.tagText}>#{tag}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
 
-          <View style={styles.matchGrid}>
-            <View style={[styles.matchCard, styles.availableCard]}>
-              <Text style={styles.matchTitle}>Var Olan Malzemeler</Text>
-              {match.matchedIngredients.length === 0 ? (
-                <Text style={styles.matchEmpty}>Henüz eşleşen malzeme yok.</Text>
-              ) : (
-                match.matchedIngredients.map((ingredient) => (
-                  <Text key={ingredient.id} style={styles.matchItem}>✓ {ingredient.name}</Text>
-                ))
-              )}
-            </View>
-            <View style={[styles.matchCard, styles.missingCard]}>
-              <Text style={styles.matchTitle}>Eksik Malzemeler</Text>
-              {match.missingIngredients.length === 0 ? (
-                <Text style={styles.matchEmpty}>Tarif tam uyumlu.</Text>
-              ) : (
-                match.missingIngredients.map((ingredient) => (
-                  <Text key={ingredient.id} style={styles.missingItem}>+ {ingredient.name}</Text>
-                ))
-              )}
-            </View>
-          </View>
+          <RecipeCompatibilityCard
+            matchPercent={match.matchPercent}
+            matchedIngredients={match.matchedIngredients}
+            missingIngredients={match.missingIngredients}
+            alternatives={alternativeSuggestions}
+          />
 
-          <MissingIngredientsBox ingredients={match.missingIngredients} onAddMissing={handleAddMissing} />
+          <MissingItemsCartCard
+            ingredients={marketBasketIngredients.map(({ ingredient, selectedBrand }) => ({
+              ...ingredient,
+              price: selectedBrand.price,
+            }))}
+            total={marketTotal}
+            onAdd={handleAddMissing}
+          />
+
+          <SmartIngredientGroups
+            matchedIngredients={match.matchedIngredients}
+            missingIngredients={match.missingIngredients}
+            alternatives={alternativeSuggestions}
+          />
 
           <TouchableOpacity onPress={handleSmartBasket} activeOpacity={0.86} style={styles.smartBasketButton}>
             <View style={styles.smartBasketButtonIcon}>
@@ -663,6 +728,10 @@ export function RecipeDetailScreen({ navigation, route }: Props) {
         visible={cookingVisible}
         onClose={() => setCookingVisible(false)}
         onFinish={handleCookingFinished}
+        onAskChef={() => {
+          setCookingVisible(false);
+          navigation.navigate('AiChefChat');
+        }}
       />
       <VoiceKitchenMode recipe={recipe} visible={voiceVisible} onClose={() => setVoiceVisible(false)} />
       <TriedRecipeModal
@@ -689,30 +758,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 36,
   },
-  hero: {
-    height: 332,
-  },
-  heroImage: {
-    resizeMode: 'cover',
-  },
-  floatingButton: {
-    position: 'absolute',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadow,
-    shadowOpacity: 0.08,
-  },
-  backButton: {
-    left: 20,
-  },
-  likeButton: {
-    right: 20,
-  },
   body: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     paddingHorizontal: theme.screen.padding,
     paddingTop: 24,
   },
@@ -813,6 +862,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: '500',
+  },
+  compatibilityLead: {
+    marginTop: 12,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    color: theme.colors.primary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '900',
   },
   socialAuthorCard: {
     marginTop: 16,

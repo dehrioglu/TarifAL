@@ -3,8 +3,11 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-import { BotSuggestionCard } from '../../components/BotSuggestionCard';
-import { CollectionCard } from '../../components/CollectionCard';
+import { CategoryInterestChip } from '../../components/personalization/CategoryInterestChip';
+import { DiscoverRecipeRail } from '../../components/discover/DiscoverRecipeRail';
+import { ProfileCollectionShowcase } from '../../components/profile/ProfileCollectionShowcase';
+import { PersonalizedDiscoverSection } from '../../components/personalization/PersonalizedDiscoverSection';
+import { DailyReturnCard } from '../../components/retention/DailyReturnCard';
 import { Screen } from '../../components/Screen';
 import { ShareRecipeModal } from '../../components/ShareRecipeModal';
 import { SocialPostCard } from '../../components/SocialPostCard';
@@ -13,29 +16,39 @@ import { TarifALBotFab } from '../../components/TarifALBotFab';
 import { TriedRecipeModal } from '../../components/TriedRecipeModal';
 import { UserProfileCard } from '../../components/UserProfileCard';
 import { theme } from '../../constants/theme';
-import { enhancedSocialCollections } from '../../data/mockCollections';
 import { mockSocialUsers } from '../../data/mockSocial';
+import { enhancedSocialCollections } from '../../data/mockCollections';
+import { mockNotifications } from '../../data/mockNotifications';
 import { mockSocialFeedExtras, recipePostToFeedPost } from '../../data/mockSocialPosts';
 import { mockStories } from '../../data/mockStories';
 import { useFeedback } from '../../feedback/FeedbackProvider';
-import { getSocialBotSuggestions } from '../../services/botService';
+import { useDailyReturn } from '../../retention/useDailyReturn';
+import { sortFeedPostsByTaste } from '../../personalization/TasteBasedFeedSorter';
+import {
+  getPostTasteCategories,
+  TasteCategory,
+  tasteCategoryLabels,
+} from '../../personalization/tasteProfileStore';
+import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
 import { SocialFeedPost, SocialUser } from '../../types';
 
-const filters = [
-  'Tümü',
-  'Ev Yemeği',
-  'Fit',
-  'Ekonomik',
-  'Usta İşi',
-  'Tatlı',
-  'Hazır Sipariş',
-  'Sepete Uygun',
+const trendTags = ['tatlı', 'ekonomik', 'fit', 'ustaişi', '15dakika', 'geleneksel'];
+type ExploreFilter = 'all' | 'practical' | 'economic' | 'fit' | 'master' | 'ready';
+
+const exploreFilters: Array<{ id: ExploreFilter; label: string }> = [
+  { id: 'all', label: 'Tümü' },
+  { id: 'practical', label: 'Pratik' },
+  { id: 'economic', label: 'Ekonomik' },
+  { id: 'fit', label: 'Fit' },
+  { id: 'master', label: 'Usta İşi' },
+  { id: 'ready', label: 'Hazır Sipariş' },
 ];
 
 export function SocialFeedScreen() {
   const navigation = useNavigation<any>();
-  const [activeFilter, setActiveFilter] = useState('Tümü');
+  const [activeTaste, setActiveTaste] = useState<TasteCategory>();
+  const [exploreFilter, setExploreFilter] = useState<ExploreFilter>('all');
   const [sharePost, setSharePost] = useState<SocialFeedPost | null>(null);
   const [triedPost, setTriedPost] = useState<SocialFeedPost | null>(null);
   const socialLikes = useAppStore((store) => store.socialLikes);
@@ -47,6 +60,7 @@ export function SocialFeedScreen() {
   const socialPollVotes = useAppStore((store) => store.socialPollVotes);
   const socialPollOptionVotes = useAppStore((store) => store.socialPollOptionVotes);
   const joinedChallenges = useAppStore((store) => store.joinedChallenges);
+  const readNotifications = useAppStore((store) => store.readNotifications);
   const toggleSocialLike = useAppStore((store) => store.toggleSocialLike);
   const toggleSocialSave = useAppStore((store) => store.toggleSocialSave);
   const toggleFollowUser = useAppStore((store) => store.toggleFollowUser);
@@ -54,7 +68,17 @@ export function SocialFeedScreen() {
   const toggleChallengeJoin = useAppStore((store) => store.toggleChallengeJoin);
   const addTriedRecipe = useAppStore((store) => store.addTriedRecipe);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
+  const {
+    scores,
+    rankedInterests,
+    primaryInterest,
+    recordPostInteraction,
+    recordTagInteraction,
+    recordCategoryInteraction,
+    recordChefFollow,
+  } = useUserTasteProfile();
   const { showToast, showDemoModal } = useFeedback();
+  const { streak, completedToday, completeDailyAction } = useDailyReturn();
 
   const currentSocialUser: SocialUser = useMemo(
     () => ({
@@ -90,67 +114,47 @@ export function SocialFeedScreen() {
     [currentSocialUser],
   );
 
-  const botSuggestions = useMemo(() => getSocialBotSuggestions(), []);
   const feedPosts = useMemo<SocialFeedPost[]>(
     () => [...socialPosts.map(recipePostToFeedPost), ...mockSocialFeedExtras],
     [socialPosts],
   );
-
-  const filteredPosts = useMemo(
-    () =>
-      feedPosts.filter((post) => {
-        const searchable = `${post.title} ${post.text} ${post.tags.join(' ')} ${post.commercialBadges?.join(' ') ?? ''}`.toLocaleLowerCase('tr-TR');
-
-        if (activeFilter === 'Tümü') {
-          return true;
-        }
-        if (activeFilter === 'Ev Yemeği') {
-          return searchable.includes('ev') || searchable.includes('geleneksel');
-        }
-        if (activeFilter === 'Fit') {
-          return searchable.includes('fit') || searchable.includes('protein');
-        }
-        if (activeFilter === 'Ekonomik') {
-          return searchable.includes('ekonomik') || searchable.includes('öğrenci') || searchable.includes('kampanyalı');
-        }
-        if (activeFilter === 'Usta İşi') {
-          return searchable.includes('usta') || post.difficulty === 'Zor';
-        }
-        if (activeFilter === 'Tatlı') {
-          return searchable.includes('tatlı') || searchable.includes('baklava') || searchable.includes('sütlaç');
-        }
-        if (activeFilter === 'Hazır Sipariş') {
-          return Boolean(post.restaurantOrderAvailable);
-        }
-        if (activeFilter === 'Sepete Uygun') {
-          return Boolean(post.marketBasketPrice);
-        }
-
-        return true;
-      }),
-    [activeFilter, feedPosts],
+  const sortedPosts = useMemo(
+    () => sortFeedPostsByTaste(feedPosts, scores, usersById),
+    [feedPosts, scores, usersById],
   );
+  const personalizedPosts = useMemo(() => {
+    const primary = primaryInterest?.id ?? 'tatli';
+    const matching = sortedPosts.filter((post) => getPostTasteCategories(post).includes(primary));
 
-  const trendingPosts = useMemo(
-    () =>
-      [...feedPosts]
-        .sort((first, second) => (socialPostStats[second.id]?.likes ?? second.likes) - (socialPostStats[first.id]?.likes ?? first.likes))
-        .slice(0, 6),
-    [feedPosts, socialPostStats],
-  );
+    return matching.length >= 3 ? matching : sortedPosts;
+  }, [primaryInterest?.id, sortedPosts]);
+  const visiblePosts = useMemo(
+    () => {
+      const tasteFiltered = activeTaste
+        ? sortedPosts.filter((post) => getPostTasteCategories(post).includes(activeTaste))
+        : sortedPosts;
 
-  const hardPosts = useMemo(
-    () => feedPosts.filter((post) => post.difficulty === 'Zor' || post.tags.join(' ').includes('usta')).slice(0, 8),
-    [feedPosts],
+      return tasteFiltered.filter((post) => matchesExploreFilter(post, exploreFilter));
+    },
+    [activeTaste, exploreFilter, sortedPosts],
   );
+  const railPosts = useMemo(
+    () => sortedPosts.filter((post) => post.recipeId && post.imageUrl),
+    [sortedPosts],
+  );
+  const unreadCount = mockNotifications.filter(
+    (notification) => !(readNotifications[notification.id] ?? notification.isRead),
+  ).length;
 
   const openRecipe = (post: SocialFeedPost) => {
+    recordPostInteraction(post, 'view');
+
     if (post.recipeId) {
       navigation.getParent()?.navigate('RecipeDetail', { recipeId: post.recipeId, socialPostId: post.id });
       return;
     }
 
-    showToast('Bu sosyal gönderi tarif detayı yerine demo bilgi kartı olarak çalışıyor.', 'info');
+    showToast('Bu sosyal gönderi tarif yerine topluluk bilgi kartı olarak çalışıyor.', 'info');
   };
 
   const openProfile = (userId: string) => {
@@ -188,6 +192,23 @@ export function SocialFeedScreen() {
     showToast('Deneyimin paylaşıldı. TarifAL topluluğuna katkı sağladın.');
   };
 
+  const chooseTaste = (category: TasteCategory) => {
+    setActiveTaste((current) => (current === category ? undefined : category));
+    recordCategoryInteraction(category);
+    showToast(`${tasteCategoryLabels[category]} ilgine göre akış güncellendi.`, 'info');
+  };
+
+  const handleTag = (tag: string) => {
+    const [category] = getPostTasteCategories({ title: tag, tags: [tag] });
+    recordTagInteraction(tag);
+
+    if (category) {
+      setActiveTaste(category);
+    }
+
+    showToast(`#${tag} için sosyal akış güncellendi.`, 'info');
+  };
+
   const renderPostCard = (post: SocialFeedPost) => {
     const author = usersById[post.authorId];
 
@@ -216,14 +237,23 @@ export function SocialFeedScreen() {
         onOpenRecipe={() => openRecipe(post)}
         onOpenProfile={() => openProfile(author.id)}
         onToggleLike={() => {
+          if (!socialLikes[post.id]) {
+            recordPostInteraction(post, 'like');
+          }
           toggleSocialLike(post.id);
           showToast(socialLikes[post.id] ? 'Beğeniden çıkarıldı.' : 'Gönderi beğenildi.');
         }}
         onToggleSave={() => {
+          if (!socialSaves[post.id]) {
+            recordPostInteraction(post, 'save');
+          }
           toggleSocialSave(post.id);
           showToast(socialSaves[post.id] ? 'Kaydedilenlerden çıkarıldı.' : 'Gönderi kaydedildi.');
         }}
         onToggleFollow={() => {
+          if (!followedUsers[author.id]) {
+            recordChefFollow(author);
+          }
           toggleFollowUser(author.id);
           showToast(followedUsers[author.id] ? 'Takip bırakıldı.' : `${author.name} takip ediliyor.`);
         }}
@@ -231,6 +261,7 @@ export function SocialFeedScreen() {
         onOrderReadyMeal={() => orderReadyMeal(post)}
         onComment={() => openRecipe(post)}
         onShare={() => setSharePost(post)}
+        onTagPress={handleTag}
         onVotePoll={(optionId) => {
           voteSocialPoll(post.id, optionId);
           showToast('Oyun kaydedildi. Anket sonuçları güncellendi.', 'info');
@@ -249,14 +280,23 @@ export function SocialFeedScreen() {
       <Screen scroll contentStyle={styles.content}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>TarifAL Sosyal</Text>
-            <Text style={styles.title}>Yaşayan yemek platformu</Text>
-            <Text style={styles.subtitle}>
-              Şefleri takip et, hikayeleri izle, tarifleri kaydet, eksikleri sepete veya hazır siparişe dönüştür.
-            </Text>
+            <Text style={styles.eyebrow}>TarifAL keşif motoru</Text>
+            <Text style={styles.title}>Enes, bugün bunları sevebilirsin</Text>
+            <Text style={styles.subtitle}>Dolabına, bütçene ve topluluktaki trendlere göre seçildi.</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Activity')} activeOpacity={0.86} style={styles.activityButton}>
+          <TouchableOpacity
+            onPress={() => navigation.getParent()?.navigate('Activity')}
+            activeOpacity={0.86}
+            accessibilityRole="button"
+            accessibilityLabel="Aktivite Merkezi"
+            style={styles.activityButton}
+          >
             <Ionicons name="notifications-outline" size={21} color={theme.colors.primary} />
+            {unreadCount > 0 ? (
+              <View style={styles.activityBadge}>
+                <Text style={styles.activityBadgeText}>{unreadCount}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -266,7 +306,7 @@ export function SocialFeedScreen() {
           style={styles.searchBar}
         >
           <Ionicons name="search" size={19} color={theme.colors.subtle} />
-          <Text style={styles.searchText}>Tarif, şef, koleksiyon veya etiket ara...</Text>
+          <Text style={styles.searchText}>Tarif, şef veya etiket ara</Text>
         </TouchableOpacity>
 
         <StoriesCarousel
@@ -279,122 +319,143 @@ export function SocialFeedScreen() {
           }}
         />
 
-        <View style={styles.socialHero}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="people" size={24} color={theme.colors.primary} />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.heroTitle}>İster yap, ister al, ister sofrana gelsin.</Text>
-            <Text style={styles.heroText}>Sosyal tarif akışı market ve restoran aksiyonlarıyla aynı yerde.</Text>
-          </View>
+        <View style={styles.returnWrap}>
+          <DailyReturnCard
+            streak={streak}
+            completedToday={completedToday}
+            onPress={() => {
+              void completeDailyAction();
+              setExploreFilter('practical');
+              showToast('Bugünün hızlı tarifleri öne alındı.', 'info');
+            }}
+          />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-          {filters.map((filter) => (
+          {exploreFilters.map((filter) => (
             <TouchableOpacity
-              key={filter}
+              key={filter.id}
               onPress={() => {
-                setActiveFilter(filter);
-                showToast(`${filter} filtresi uygulandı.`, 'info');
+                setExploreFilter(filter.id);
+                showToast(`${filter.label} keşif filtresi uygulandı.`, 'info');
               }}
-              activeOpacity={0.86}
-              style={[styles.filterChip, activeFilter === filter && styles.filterChipActive]}
+              activeOpacity={0.84}
+              style={[styles.filterChip, exploreFilter === filter.id && styles.filterChipActive]}
             >
-              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>{filter}</Text>
+              <Text style={[styles.filterChipText, exploreFilter === filter.id && styles.filterChipTextActive]}>
+                {filter.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trend Tarifler</Text>
-          <Text style={styles.sectionAction}>{trendingPosts.length} gönderi</Text>
+        <PersonalizedDiscoverSection
+          primaryInterest={primaryInterest?.id ?? 'tatli'}
+          posts={personalizedPosts}
+          onOpenPost={openRecipe}
+        />
+
+        {exploreFilter === 'all' ? (
+          <>
+            <DiscoverRecipeRail
+              title="15 dakikada hazır"
+              subtitle="Karar vermek için fazla düşünmeye gerek yok."
+              posts={railPosts.filter((post) => (post.totalTime ?? 999) <= 15)}
+              onOpenPost={openRecipe}
+            />
+            <DiscoverRecipeRail
+              title="₺150 altı tarifler"
+              subtitle="Bütçeyi koruyan, sepete dönüşmeye hazır seçimler."
+              posts={railPosts.filter((post) => (post.marketBasketPrice ?? 999) <= 150)}
+              accent="#12B76A"
+              onOpenPost={openRecipe}
+            />
+            <DiscoverRecipeRail
+              title="Usta işi hafta sonu"
+              subtitle="Şeflerin kaydettiği daha iddialı sofralar."
+              posts={railPosts.filter((post) => post.difficulty === 'Zor')}
+              accent="#0B1020"
+              onOpenPost={openRecipe}
+            />
+            <DiscoverRecipeRail
+              title="Hazır sipariş alternatifi olanlar"
+              subtitle="Evde yap veya sofrana gelsin."
+              posts={railPosts.filter((post) => post.restaurantOrderAvailable)}
+              onOpenPost={openRecipe}
+            />
+          </>
+        ) : (
+          <DiscoverRecipeRail
+            title="Seçimine göre öne çıkanlar"
+            subtitle={`${visiblePosts.length} tarif ve topluluk gönderisi bulundu.`}
+            posts={visiblePosts}
+            onOpenPost={openRecipe}
+          />
+        )}
+
+        <View style={styles.collectionWrap}>
+          <ProfileCollectionShowcase
+            collections={enhancedSocialCollections.slice(0, 6)}
+            onOpenCollection={(collectionId) => navigation.getParent()?.navigate('CollectionDetail', { collectionId })}
+          />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.miniPostRow}>
-          {trendingPosts.map((post) => (
-            <TouchableOpacity key={post.id} onPress={() => openRecipe(post)} activeOpacity={0.86} style={styles.miniPostCard}>
-              <Text style={styles.miniPostTitle} numberOfLines={2}>{post.title}</Text>
-              <Text style={styles.miniPostMeta}>{post.likes.toLocaleString('tr-TR')} beğeni</Text>
-            </TouchableOpacity>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>İlgi alanların</Text>
+          <Text style={styles.sectionAction}>Etkileşimlerine göre</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
+          {rankedInterests.slice(0, 6).map((interest) => (
+            <CategoryInterestChip
+              key={interest.id}
+              category={interest.id}
+              label={interest.label}
+              score={interest.score}
+              active={activeTaste === interest.id}
+              onPress={chooseTaste}
+            />
           ))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Haftanın Şefleri</Text>
+          <Text style={styles.sectionTitle}>Sosyal akış</Text>
+          <Text style={styles.sectionAction}>{visiblePosts.length} gönderi</Text>
+        </View>
+        <View style={styles.feedList}>{visiblePosts.map(renderPostCard)}</View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Haftanın şefleri</Text>
           <Text style={styles.sectionAction}>Takip et</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {mockSocialUsers.slice(0, 8).map((user) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalRow}>
+          {mockSocialUsers.slice(0, 8).map((chef) => (
             <UserProfileCard
-              key={user.id}
-              user={user}
-              following={Boolean(followedUsers[user.id])}
-              onPress={() => openProfile(user.id)}
+              key={chef.id}
+              user={chef}
+              following={Boolean(followedUsers[chef.id])}
+              onPress={() => openProfile(chef.id)}
               onToggleFollow={() => {
-                toggleFollowUser(user.id);
-                showToast(followedUsers[user.id] ? 'Takip bırakıldı.' : `${user.name} takip ediliyor.`);
+                if (!followedUsers[chef.id]) {
+                  recordChefFollow(chef);
+                }
+                toggleFollowUser(chef.id);
+                showToast(followedUsers[chef.id] ? 'Takip bırakıldı.' : `${chef.name} takip ediliyor.`);
               }}
             />
           ))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Yeni Eklenen Zor Tarifler</Text>
-          <Text style={styles.sectionAction}>Usta işi</Text>
+          <Text style={styles.sectionTitle}>Trend etiketler</Text>
+          <Text style={styles.sectionAction}>Bugün</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.miniPostRow}>
-          {hardPosts.map((post) => (
-            <TouchableOpacity key={post.id} onPress={() => openRecipe(post)} activeOpacity={0.86} style={styles.hardCard}>
-              <Text style={styles.hardBadge}>Zor</Text>
-              <Text style={styles.miniPostTitle} numberOfLines={2}>{post.title}</Text>
-              <Text style={styles.miniPostMeta}>{post.totalTime ?? 60} dk • ₺{post.marketBasketPrice ?? 0}</Text>
+        <View style={styles.tagRow}>
+          {trendTags.map((tag) => (
+            <TouchableOpacity key={tag} onPress={() => handleTag(tag)} activeOpacity={0.82} style={styles.trendTag}>
+              <Text style={styles.trendTagText}>#{tag}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Koleksiyonlar</Text>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('CollectionDetail', { collectionId: 'collection-master' })}>
-            <Text style={styles.linkText}>Usta işi aç</Text>
-          </TouchableOpacity>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {enhancedSocialCollections.slice(0, 8).map((collection) => (
-            <CollectionCard
-              key={collection.id}
-              collection={collection}
-              onPress={() => navigation.getParent()?.navigate('CollectionDetail', { collectionId: collection.id })}
-            />
-          ))}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>TarifAL Bot Önerileri</Text>
-          <Text style={styles.sectionAction}>Mock AI</Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {botSuggestions.map((suggestion) => (
-            <BotSuggestionCard
-              key={suggestion.prompt}
-              title={suggestion.prompt}
-              response={suggestion.response}
-              onPress={() => {
-                showDemoModal({
-                  title: suggestion.prompt,
-                  message: suggestion.response,
-                  primaryLabel: 'Bot Chat’e Git',
-                  secondaryLabel: 'Kapat',
-                  onPrimary: () => navigation.getParent()?.navigate('AiChefChat'),
-                });
-              }}
-            />
-          ))}
-        </ScrollView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Sosyal Feed</Text>
-          <Text style={styles.sectionAction}>{filteredPosts.length} gönderi</Text>
-        </View>
-        <View style={styles.feedList}>{filteredPosts.map(renderPostCard)}</View>
       </Screen>
 
       <TarifALBotFab onPress={() => navigation.getParent()?.navigate('AiChefChat')} />
@@ -442,8 +503,8 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 4,
     color: theme.colors.text,
-    fontSize: 28,
-    lineHeight: 33,
+    fontSize: 29,
+    lineHeight: 34,
     fontWeight: '900',
   },
   subtitle: {
@@ -460,6 +521,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  activityBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
   },
   searchBar: {
     marginTop: 16,
@@ -479,46 +557,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  socialHero: {
-    marginTop: 8,
-    borderRadius: 26,
-    backgroundColor: theme.colors.text,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    overflow: 'hidden',
-  },
-  heroIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  heroText: {
-    marginTop: 5,
-    color: '#D0D5DD',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
+  returnWrap: {
+    marginTop: 14,
   },
   filterRow: {
     gap: 8,
-    paddingTop: 15,
-    paddingBottom: 4,
+    paddingTop: 16,
+    paddingBottom: 2,
   },
   filterChip: {
-    minHeight: 38,
+    minHeight: 40,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -530,13 +578,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primary,
   },
-  filterText: {
+  filterChipText: {
     color: theme.colors.text,
     fontSize: 12,
     fontWeight: '900',
   },
-  filterTextActive: {
+  filterChipTextActive: {
     color: '#FFFFFF',
+  },
+  collectionWrap: {
+    marginTop: 20,
   },
   sectionHeader: {
     marginTop: 20,
@@ -553,64 +604,51 @@ const styles = StyleSheet.create({
   },
   sectionAction: {
     color: theme.colors.subtle,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  linkText: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  horizontalList: {
-    gap: 10,
-    paddingBottom: 2,
-  },
-  miniPostRow: {
-    gap: 10,
-  },
-  miniPostCard: {
-    width: 178,
-    minHeight: 108,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: '#FFFFFF',
-    padding: 13,
-    justifyContent: 'space-between',
-  },
-  hardCard: {
-    width: 190,
-    minHeight: 116,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FFE0CF',
-    backgroundColor: '#FFF8F4',
-    padding: 13,
-    justifyContent: 'space-between',
-  },
-  hardBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
-    overflow: 'hidden',
-  },
-  miniPostTitle: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  miniPostMeta: {
-    color: theme.colors.primary,
     fontSize: 11,
     fontWeight: '900',
+  },
+  horizontalRow: {
+    gap: 9,
+    paddingBottom: 2,
   },
   feedList: {
     gap: 16,
   },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  trendTag: {
+    minHeight: 36,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  trendTagText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
 });
+
+function matchesExploreFilter(post: SocialFeedPost, filter: ExploreFilter) {
+  if (filter === 'all') {
+    return true;
+  }
+  if (filter === 'practical') {
+    return (post.totalTime ?? post.prepTime ?? 999) <= 30;
+  }
+  if (filter === 'economic') {
+    return (post.marketBasketPrice ?? 999) <= 150 || post.tags.includes('ekonomik');
+  }
+  if (filter === 'fit') {
+    return post.tags.some((tag) => ['fit', 'protein', 'saglikli'].includes(tag.toLocaleLowerCase('tr-TR')));
+  }
+  if (filter === 'master') {
+    return post.difficulty === 'Zor' || post.tags.some((tag) => tag.toLocaleLowerCase('tr-TR').includes('ustaisi'));
+  }
+  return Boolean(post.restaurantOrderAvailable);
+}

@@ -4,37 +4,37 @@ export const onboardingTourSteps: TourStep[] = [
   {
     id: 'home-intro',
     target: 'homeHeader',
-    title: 'Burası senin akıllı mutfağın',
+    title: 'Burası senin TarifAL merkezin',
     description:
-      'TarifAL sana tarif, alışveriş ve yapay zekâ destekli önerileri tek ekranda sunar.',
+      'TarifAL sana tarif, alışveriş ve hazır yemek seçeneklerini tek merkezde sunar.',
   },
   {
     id: 'home-search',
     target: 'homeSearch',
-    title: 'Ne pişirmek istediğini ara',
+    title: 'Nasıl TarifAL yapmak istediğini seç',
     description:
-      'Yemek adı, kategori veya malzeme yazarak saniyeler içinde uygun tarifleri bulabilirsin.',
+      'Evde yapmak, eksikleri sepete eklemek veya hazır yemek sipariş etmek için doğru yerdesin.',
   },
   {
     id: 'home-pantry',
     target: 'homePantry',
-    title: 'Evdeki malzemelerle tarif bul',
+    title: 'Evdeki malzemelerle başla',
     description:
       'Buzdolabında ne varsa yaz; TarifAL sana yapabileceğin en uygun tarifleri önersin.',
   },
   {
     id: 'home-categories',
     target: 'homeQuickActions',
-    title: 'Hızlı Başla',
+    title: 'Altı servis, tek mutfak asistanı',
     description:
-      'Bugün ne pişirsem, evde ne var, haftalık plan ve market listesi gibi ana aksiyonlara buradan geçebilirsin.',
+      'TarifAL Evde, Sepet, Yemek, Plan, Ekonomik ve Fit servislerine buradan geçebilirsin.',
   },
   {
     id: 'home-recipes',
     target: 'homeRecipeCards',
-    title: 'Tarif detaylarını incele',
+    title: 'Günün tarifini incele',
     description:
-      'Süre, zorluk, kalori ve malzeme bilgilerini görerek sana en uygun tarifi seç.',
+      'Tek bir kısa öneriyle kararını hızlandırabilir veya Keşfet sayfasında sosyal akışa geçebilirsin.',
   },
   {
     id: 'home-market',

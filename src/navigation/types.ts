@@ -21,7 +21,7 @@ export type RootStackParamList = {
   SmartBasket: { recipeId?: string; ingredients?: string[]; startFrom?: 'intro' | 'servings' } | undefined;
   PantryVision: undefined;
   FamilyAccount: undefined;
-  MarketCheckout: undefined;
+  MarketCheckout: { marketId?: string } | undefined;
   AiChefChat: undefined;
   InvestorDemo: undefined;
   SocialProfile: { userId: string };

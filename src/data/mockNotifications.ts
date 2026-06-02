@@ -70,4 +70,26 @@ export const mockNotifications: SocialNotification[] = [
     createdAt: 'Dün',
     isRead: false,
   },
+  {
+    id: 'notification-daily-pantry',
+    type: 'bot',
+    actorId: 'user-tarifal-bot',
+    targetId: 'recipe-yogurtlu-makarna',
+    text: 'Dolabındaki yoğurdu değerlendirebileceğin 3 pratik tarif hazır.',
+    createdAt: 'Bugün',
+    isRead: false,
+    imageUrl:
+      'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=300&auto=format&fit=crop',
+  },
+  {
+    id: 'notification-chef-new-recipe',
+    type: 'recipe',
+    actorId: 'user-murat',
+    targetId: 'post-hunkar-murat',
+    text: 'Takip ettiğin Şef Murat yeni bir usta işi tarif paylaştı.',
+    createdAt: 'Bugün',
+    isRead: false,
+    imageUrl:
+      'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=300&auto=format&fit=crop',
+  },
 ];
