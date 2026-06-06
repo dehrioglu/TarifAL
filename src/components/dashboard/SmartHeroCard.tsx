@@ -30,37 +30,15 @@ export function SmartHeroCard({
   onOpenPantry,
 }: SmartHeroCardProps) {
   const entrance = useRef(new Animated.Value(0)).current;
-  const sparkle = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 560,
+      duration: 260,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-
-    const sparkleLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkle, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sparkle, {
-          toValue: 0,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    sparkleLoop.start();
-
-    return () => sparkleLoop.stop();
-  }, [entrance, sparkle]);
+  }, [entrance]);
 
   return (
     <Animated.View
@@ -70,7 +48,7 @@ export function SmartHeroCard({
           {
             translateY: entrance.interpolate({
               inputRange: [0, 1],
-              outputRange: [18, 0],
+              outputRange: [8, 0],
             }),
           },
         ],
@@ -78,27 +56,9 @@ export function SmartHeroCard({
     >
       <ImageBackground source={{ uri: imageUrl }} style={styles.card} imageStyle={styles.image}>
         <View style={styles.overlay} />
-        <Animated.View
-          style={[
-            styles.sparkle,
-            {
-              opacity: sparkle.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.55, 1],
-              }),
-              transform: [
-                {
-                  scale: sparkle.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.95, 1.08],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
+        <View style={styles.sparkle}>
           <Ionicons name="sparkles" size={15} color="#FFFFFF" />
-        </Animated.View>
+        </View>
 
         <View style={styles.content}>
           <View style={styles.badge}>

@@ -28,6 +28,8 @@ export type GoalType =
   | 'ekonomik_beslenmek'
   | 'pratik_yemek';
 
+export type UserRole = 'user' | 'admin' | 'founder';
+
 export type FavoriteListType = 'favorites' | 'cookLater' | 'cookedBefore';
 
 export type MarketAlternative = {
@@ -61,6 +63,55 @@ export type Ingredient = {
   quantity?: number;
   brands?: IngredientBrandOption[];
   alternatives?: MarketAlternative[];
+};
+
+export type SponsoredPlacementType =
+  | 'recipe_detail'
+  | 'missing_items'
+  | 'cart'
+  | 'ai_chef'
+  | 'discover_collection';
+
+export type SponsoredProduct = {
+  id: string;
+  brandName: string;
+  productName: string;
+  category: string;
+  subCategory?: string;
+  imageURL?: string;
+  price: number;
+  unit: string;
+  tags: string[];
+  sponsorLabel: string;
+  priority: number;
+  targetIngredients: string[];
+  targetRecipeCategories: string[];
+  targetKeywords: string[];
+  placementTypes: SponsoredPlacementType[];
+  isActive: boolean;
+  campaignName: string;
+  campaignStartAt?: string;
+  campaignEndAt?: string;
+  clickCount: number;
+  impressionCount: number;
+  cartAddCount: number;
+  reason: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SponsoredCollection = {
+  id: string;
+  title: string;
+  subtitle: string;
+  sponsorLabel: string;
+  brandName: string;
+  brandLogoUrl?: string;
+  productIds: string[];
+  recipeIds: string[];
+  imageURL?: string;
+  ctaLabel: string;
+  isActive: boolean;
 };
 
 export type MarketProduct = {
@@ -98,6 +149,8 @@ export type Recipe = {
   createdBy: string;
   createdByName: string;
   createdAt: string;
+  updatedAt?: string;
+  isDemo?: boolean;
   isFeatured?: boolean;
 };
 
@@ -106,6 +159,131 @@ export type AppUser = {
   name: string;
   email: string;
   avatarUrl?: string;
+  role?: UserRole;
+  createdAt?: string;
+  updatedAt?: string;
+  isDemo?: boolean;
+  isBetaTester?: boolean;
+  betaCode?: string;
+  betaJoinedAt?: string;
+};
+
+export type AccountMode = 'demo' | 'account';
+
+export type AnalyticsEventName =
+  | 'user_registered'
+  | 'user_logged_in'
+  | 'user_logged_out'
+  | 'recipe_opened'
+  | 'recipe_favorited'
+  | 'recipe_unfavorited'
+  | 'missing_items_added_to_cart'
+  | 'cart_item_added'
+  | 'cart_item_removed'
+  | 'smart_cart_created'
+  | 'checkout_demo_started'
+  | 'checkout_demo_completed'
+  | 'recipe_shared'
+  | 'ai_chef_opened'
+  | 'demo_mode_used'
+  | 'real_account_used'
+  | 'beta_joined'
+  | 'feedback_submitted'
+  | 'mini_survey_answered'
+  | 'order_created'
+  | 'order_status_updated'
+  | 'order_completed'
+  | 'order_cancelled'
+  | 'sponsored_impression'
+  | 'sponsored_click'
+  | 'sponsored_added_to_cart'
+  | 'sponsored_collection_opened'
+  | 'sponsored_alternative_viewed';
+
+export type AnalyticsEventPayload = {
+  userId?: string;
+  userEmail?: string;
+  recipeId?: string;
+  recipeTitle?: string;
+  cartTotal?: number;
+  sourceScreen?: string;
+  isDemoMode?: boolean;
+  extraData?: Record<string, string | number | boolean | null | undefined>;
+};
+
+export type AnalyticsMetricSummary = {
+  totalUsers: number;
+  totalEvents: number;
+  recipeOpenCount: number;
+  favoriteCount: number;
+  cartCreatedCount: number;
+  checkoutCompletedCount: number;
+  averageCartTotal: number;
+  cartConversionRate: number;
+  checkoutCompletionRate: number;
+  demoUsageRate: number;
+  realAccountUsageRate: number;
+  topOpenedRecipes: Array<{ recipeTitle: string; count: number }>;
+  topFavoritedRecipes: Array<{ recipeTitle: string; count: number }>;
+};
+
+export type FeedbackType =
+  | 'liked'
+  | 'confusing'
+  | 'bug'
+  | 'missing_feature'
+  | 'idea';
+
+export type FeedbackPayload = {
+  userId?: string;
+  userEmail?: string;
+  userName?: string;
+  screenName: string;
+  feedbackType: FeedbackType;
+  message?: string;
+  rating?: number;
+  isBetaTester?: boolean;
+  isDemoMode?: boolean;
+  extraData?: Record<string, string | number | boolean | null | undefined>;
+};
+
+export type FeedbackItem = FeedbackPayload & {
+  id: string;
+  createdAt?: string;
+};
+
+export type MiniSurveyPayload = {
+  userId?: string;
+  userEmail?: string;
+  screenName: string;
+  question: string;
+  answer: string;
+  relatedEvent: string;
+  isBetaTester?: boolean;
+  isDemoMode?: boolean;
+};
+
+export type MiniSurveyResponse = MiniSurveyPayload & {
+  id: string;
+  createdAt?: string;
+};
+
+export type FeedbackStats = {
+  betaTesterCount: number;
+  totalFeedback: number;
+  averageRating: number;
+  topFeedbackScreen: string;
+  mostLikedScreen: string;
+  topBugScreen: string;
+  topConfusingScreen: string;
+  recentFeedback: FeedbackItem[];
+  surveyAnswerDistribution: Record<string, Record<string, number>>;
+  marketOrderIntent: {
+    yes: number;
+    maybe: number;
+    no: number;
+    total: number;
+  };
 };
 
 export type CartItem = {
@@ -119,13 +297,16 @@ export type CartItem = {
   price: number;
   quantity: number;
   selectedAlternative?: MarketAlternative;
-  source?: 'recipe' | 'smartBasket' | 'familyList';
+  source?: 'recipe' | 'smartBasket' | 'familyList' | 'sponsored';
   sourceLabel?: string;
   marketName?: string;
   deliveryEstimate?: string;
   commissionEstimate?: number;
   averageBasket?: number;
   conversionRate?: number;
+  sponsoredProductId?: string;
+  brandName?: string;
+  sponsorLabel?: string;
 };
 
 export type PurchaseMode = 'home' | 'market' | 'restaurant';
@@ -255,24 +436,45 @@ export type PlaceOrderOptions = {
   marketPriceMultiplier?: number;
 };
 
+export type OrderStatus = 'new' | 'preparing' | 'on_the_way' | 'completed' | 'cancelled';
+
+export type PaymentStatus = 'demo' | 'pending' | 'paid' | 'failed' | 'refunded';
+
+export type RelatedRecipeSummary = {
+  recipeId: string;
+  recipeTitle: string;
+};
+
 export type Order = {
   id: string;
+  orderId?: string;
+  orderNumber?: string;
   userId: string;
+  userEmail?: string | null;
+  userName?: string | null;
   items: CartItem[];
+  relatedRecipes?: RelatedRecipeSummary[];
   address: string;
   total: number;
   subtotal?: number;
   deliveryFee?: number;
+  discount?: number;
   serviceFee?: number;
   marketName?: string;
   deliveryEstimate?: string;
   deliverySlot?: string;
   paymentMethod?: string;
+  paymentStatus?: PaymentStatus;
+  isPaid?: boolean;
+  isDemoOrder?: boolean;
+  userNote?: string;
   commissionEstimate?: number;
   averageBasket?: number;
   conversionRate?: number;
   createdAt: string;
-  status: 'mock-confirmed';
+  updatedAt?: string;
+  completedAt?: string | null;
+  status: OrderStatus;
 };
 
 export type AiSuggestion = {

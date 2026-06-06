@@ -25,48 +25,22 @@ export function TarifALServiceCard({
 }: TarifALServiceCardProps) {
   const entrance = useRef(new Animated.Value(0)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
-  const iconFloat = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 460,
+      duration: 260,
       delay,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-
-    const iconLoop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay + 900),
-        Animated.timing(iconFloat, {
-          toValue: 1,
-          duration: 1100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(iconFloat, {
-          toValue: 0,
-          duration: 1100,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.delay(1400),
-      ]),
-    );
-
-    iconLoop.start();
-
-    return () => {
-      iconLoop.stop();
-    };
-  }, [delay, entrance, iconFloat]);
+  }, [delay, entrance]);
 
   const animatePress = (toValue: number) => {
-    Animated.spring(pressScale, {
+    Animated.timing(pressScale, {
       toValue,
-      speed: 24,
-      bounciness: 4,
+      duration: 110,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
   };
@@ -79,7 +53,7 @@ export function TarifALServiceCard({
           {
             translateY: entrance.interpolate({
               inputRange: [0, 1],
-              outputRange: [18, 0],
+              outputRange: [8, 0],
             }),
           },
           { scale: pressScale },
@@ -88,28 +62,18 @@ export function TarifALServiceCard({
     >
       <TouchableOpacity
         onPress={onPress}
-        onPressIn={() => animatePress(0.975)}
+        onPressIn={() => animatePress(0.985)}
         onPressOut={() => animatePress(1)}
         activeOpacity={0.9}
         accessibilityRole="button"
         accessibilityLabel={cta}
         style={styles.card}
       >
-        <Animated.View
+        <View
           style={[
             styles.icon,
             accent === 'navy' && styles.navyIcon,
             accent === 'green' && styles.greenIcon,
-            {
-              transform: [
-                {
-                  translateY: iconFloat.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -4],
-                  }),
-                },
-              ],
-            },
           ]}
         >
           <Ionicons
@@ -117,7 +81,7 @@ export function TarifALServiceCard({
             size={21}
             color={accent === 'navy' ? theme.colors.text : accent === 'green' ? theme.colors.success : theme.colors.primary}
           />
-        </Animated.View>
+        </View>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
         <View style={styles.ctaRow}>

@@ -14,10 +14,10 @@ export function RestaurantOrderOptions({ restaurants, onAddRestaurant }: Restaur
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.title}>Hazır yemek seçenekleri</Text>
-        <Text style={styles.badge}>Demo restoranlar</Text>
+        <Text style={styles.badge}>Restoran alternatifleri</Text>
       </View>
       <Text style={styles.subtitle}>
-        Bu restoranlar mock veridir. Yapı ileride gerçek restoran API entegrasyonuna hazır olacak şekilde ayrıldı.
+        Aynı yemeği sunan restoranları fiyat, puan ve teslimat süresine göre karşılaştır.
       </Text>
       <View style={styles.list}>
         {restaurants.map((restaurant) => (

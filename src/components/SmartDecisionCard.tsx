@@ -148,7 +148,7 @@ export function SmartDecisionCard({
       cost: restaurantTotal,
       timeLabel: bestRestaurant?.deliveryEstimate ?? '30-45 dk',
       timeValue: restaurantTime,
-      helper: bestRestaurant ? `${bestRestaurant.name} â€¢ â­ ${bestRestaurant.rating.toFixed(1)}` : 'Demo restoran',
+      helper: bestRestaurant ? `${bestRestaurant.name} â€¢ â­ ${bestRestaurant.rating.toFixed(1)}` : 'Restoran alternatifi',
       icon: 'restaurant-outline',
     },
   ];
@@ -156,10 +156,6 @@ export function SmartDecisionCard({
   const cheapest = [...options].sort((first, second) => first.cost - second.cost)[0];
   const fastest = [...options].sort((first, second) => first.timeValue - second.timeValue)[0];
   const savings = Math.max(0, restaurantTotal - cheapest.cost);
-  const commissionPotential =
-    recommendation.mode === 'restaurant'
-      ? restaurantTotal * (bestRestaurant?.commissionRate ?? commerceMarketDemo.restaurantCommissionRate)
-      : marketTotal * commerceMarketDemo.marketCommissionRate;
   const score = Math.min(
     98,
     Math.max(
@@ -169,10 +165,10 @@ export function SmartDecisionCard({
   );
   const recommendationText =
     recommendation.mode === 'home'
-      ? `${recipeTitle} için evde yapmak ek market maliyeti olmadan en ekonomik seçenek görünüyor.`
+      ? `${recipeTitle} iÃ§in evde yapmak ek market maliyeti olmadan en ekonomik seÃ§enek gÃ¶rÃ¼nÃ¼yor.`
       : recommendation.mode === 'market'
-        ? `${recipeTitle} için yalnızca eksikleri market sepetine dönüştürmek mantıklı görünüyor.`
-        : `${recipeTitle} için hazır sipariş daha pahalı ama hız ve restoran komisyonu potansiyelini gösteriyor.`;
+        ? `${recipeTitle} iÃ§in yalnÄ±zca eksikleri market sepetine dÃ¶nÃ¼ÅŸtÃ¼rmek mantÄ±klÄ± gÃ¶rÃ¼nÃ¼yor.`
+        : `${recipeTitle} iÃ§in hazÄ±r sipariÅŸ daha pahalÄ± olabilir ama zamandan tasarruf saÄŸlar.`;
 
   return (
     <View style={styles.card}>
@@ -249,8 +245,8 @@ export function SmartDecisionCard({
           <Text style={styles.metricLabel}>Tasarruf pot.</Text>
         </View>
         <View style={styles.metric}>
-          <Text style={styles.metricValue}>â‚º{commissionPotential.toFixed(0)}</Text>
-          <Text style={styles.metricLabel}>Komisyon pot.</Text>
+          <Text style={styles.metricValue}>%{matchPercent}</Text>
+          <Text style={styles.metricLabel}>Dolap uyumu</Text>
         </View>
         <View style={styles.metric}>
           <Text style={styles.metricValue}>{fastest.title}</Text>
@@ -267,7 +263,7 @@ export function SmartDecisionCard({
         <Text style={styles.ctaText}>{recommendation.title} seÃ§eneÄŸini aÃ§</Text>
       </TouchableOpacity>
       <Text style={styles.note}>
-        Fiyatlar demo veridir; yatÄ±rÄ±mcÄ± akÄ±ÅŸÄ±nda market ve restoran gelir modelini gÃ¶rÃ¼nÃ¼r kÄ±lar.
+        Fiyatlar tahminidir; market ve restoran seÃ§enekleri beta sÃ¼recinde netleÅŸir.
       </Text>
     </View>
   );
@@ -474,4 +470,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

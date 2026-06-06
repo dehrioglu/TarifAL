@@ -26,18 +26,18 @@ function QuickActionCard({ action, index }: { action: QuickKitchenAction; index:
   useEffect(() => {
     Animated.timing(entrance, {
       toValue: 1,
-      duration: 420,
-      delay: index * 70,
+      duration: 240,
+      delay: index * 30,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [entrance, index]);
 
   const scaleTo = (toValue: number) => {
-    Animated.spring(pressScale, {
+    Animated.timing(pressScale, {
       toValue,
-      speed: 26,
-      bounciness: 3,
+      duration: 110,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
   };
@@ -50,7 +50,7 @@ function QuickActionCard({ action, index }: { action: QuickKitchenAction; index:
           {
             translateX: entrance.interpolate({
               inputRange: [0, 1],
-              outputRange: [14, 0],
+              outputRange: [6, 0],
             }),
           },
           { scale: pressScale },
@@ -59,7 +59,7 @@ function QuickActionCard({ action, index }: { action: QuickKitchenAction; index:
     >
       <TouchableOpacity
         onPress={action.onPress}
-        onPressIn={() => scaleTo(0.97)}
+        onPressIn={() => scaleTo(0.985)}
         onPressOut={() => scaleTo(1)}
         activeOpacity={0.9}
         accessibilityRole="button"

@@ -17,7 +17,7 @@ export function SmartBasketMissingItems({ plan, onNext }: SmartBasketMissingItem
         <View>
           <Text style={styles.title}>Eksik ürünler bulundu</Text>
           <Text style={styles.subtitle}>
-            {plan.recipeTitle} için {plan.missingIngredients.length} ürün Demo Market sepetine dönüşebilir.
+            {plan.recipeTitle} için {plan.missingIngredients.length} ürün market sepetine dönüşebilir.
           </Text>
         </View>
         <View style={styles.badge}>
@@ -54,7 +54,7 @@ export function SmartBasketMissingItems({ plan, onNext }: SmartBasketMissingItem
 
       <TouchableOpacity onPress={onNext} activeOpacity={0.88} style={styles.primaryButton}>
         <Ionicons name="basket" size={17} color="#FFFFFF" />
-        <Text style={styles.primaryText}>Demo market sepetini önizle</Text>
+        <Text style={styles.primaryText}>Market sepetini önizle</Text>
       </TouchableOpacity>
     </View>
   );

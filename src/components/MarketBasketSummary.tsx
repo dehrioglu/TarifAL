@@ -11,8 +11,6 @@ type MarketBasketSummaryProps = {
 };
 
 export function MarketBasketSummary({ itemCount, total, onAddToCart }: MarketBasketSummaryProps) {
-  const commission = total * commerceMarketDemo.marketCommissionRate;
-
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -33,12 +31,12 @@ export function MarketBasketSummary({ itemCount, total, onAddToCart }: MarketBas
           <Text style={styles.statLabel}>Canlı toplam</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>₺{commission.toFixed(0)}</Text>
-          <Text style={styles.statLabel}>Komisyon sim.</Text>
+          <Text style={styles.statValue}>{commerceMarketDemo.deliveryEstimate}</Text>
+          <Text style={styles.statLabel}>Teslimat</Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statValue}>%{Math.round(commerceMarketDemo.conversionRate * 100)}</Text>
-          <Text style={styles.statLabel}>Dönüşüm</Text>
+          <Text style={styles.statLabel}>Sepete uygun</Text>
         </View>
       </View>
 
@@ -52,7 +50,7 @@ export function MarketBasketSummary({ itemCount, total, onAddToCart }: MarketBas
           {itemCount === 0 ? 'Eksik ürün yok' : 'Eksikleri Sepete Ekle'}
         </Text>
       </TouchableOpacity>
-      <Text style={styles.note}>Demo fiyatlardır; gerçek market entegrasyonu MVP sonrası bağlanabilir.</Text>
+      <Text style={styles.note}>Fiyatlar tahminidir; market entegrasyonu beta sürecinde netleşir.</Text>
     </View>
   );
 }

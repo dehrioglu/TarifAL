@@ -17,12 +17,14 @@ export function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('tarifai@tarifai.com');
   const [password, setPassword] = useState('Test123!');
   const signIn = useAppStore((store) => store.signIn);
+  const openDemoMode = useAppStore((store) => store.openDemoMode);
   const loading = useAppStore((store) => store.authLoading);
   const { showToast } = useFeedback();
 
   const handleSubmit = async () => {
     try {
       await signIn(email, password);
+      navigation.getParent()?.navigate('MainTabs');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Giriş yapılamadı, tekrar deneyin.', 'warning');
     }
@@ -56,6 +58,15 @@ export function LoginScreen({ navigation }: Props) {
             placeholder="Şifre"
           />
           <AppButton title="Giriş Yap" onPress={handleSubmit} loading={loading} />
+          <AppButton
+            title="Demo Modunda Devam Et"
+            icon="flask-outline"
+            variant="soft"
+            onPress={() => {
+              openDemoMode();
+              navigation.getParent()?.navigate('MainTabs');
+            }}
+          />
         </View>
 
         <View style={styles.inline}>

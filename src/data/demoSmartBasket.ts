@@ -5,7 +5,7 @@ import {
 } from '../types';
 
 export const demoSmartBasketMarket: SmartBasketMarketInfo = {
-  name: 'Demo Market',
+  name: 'TarifAL Market',
   deliveryEstimate: '30-45 dk',
   commissionRate: 0.084,
   averageBasket: 214,

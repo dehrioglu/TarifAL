@@ -203,6 +203,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.86,
+    transform: [{ scale: 0.985 }],
   },
 });

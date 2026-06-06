@@ -124,7 +124,7 @@ export function IngredientMatcher({
 
       <TouchableOpacity onPress={onOpenVision} activeOpacity={0.86} style={styles.photoPlaceholder}>
         <Ionicons name="camera-outline" size={17} color={theme.colors.primary} />
-        <Text style={styles.photoPlaceholderText}>Fotoğrafla Dolabımı Tara: demo AI malzeme tanıma</Text>
+        <Text style={styles.photoPlaceholderText}>Fotoğrafla Dolabımı Tara: AI malzeme tanıma</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setShowMatches(true)} activeOpacity={0.86} style={styles.findButton}>

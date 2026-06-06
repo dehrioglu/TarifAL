@@ -1,7 +1,11 @@
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { theme } from '../constants/theme';
 import { useAppStore } from '../store/useAppStore';
 import { ActivityScreen } from '../screens/main/ActivityScreen';
+import { AdminPanelScreen } from '../screens/main/AdminPanelScreen';
 import { AiChefChatScreen } from '../screens/main/AiChefChatScreen';
 import { CollectionDetailScreen } from '../screens/main/CollectionDetailScreen';
 import { FamilyAccountScreen } from '../screens/main/FamilyAccountScreen';
@@ -20,18 +24,29 @@ import { RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const user = useAppStore((store) => store.user);
+  const authInitialized = useAppStore((store) => store.authInitialized);
+  const initializeAuthSession = useAppStore((store) => store.initializeAuthSession);
   const needsWelcomeOnboarding = useAppStore((store) => store.needsWelcomeOnboarding);
 
+  useEffect(() => initializeAuthSession(), [initializeAuthSession]);
+
+  if (!authInitialized) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Hesap durumu hazırlanıyor...</Text>
+      </View>
+    );
+  }
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-      {!user ? (
-        <Stack.Screen name="Auth" component={AuthNavigator} />
-      ) : needsWelcomeOnboarding ? (
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      {needsWelcomeOnboarding ? (
         <Stack.Screen name="WelcomeOnboarding" component={WelcomeOnboardingScreen} />
       ) : (
         <>
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="Auth" component={AuthNavigator} />
           <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
           <Stack.Screen name="SmartBasket" component={SmartBasketScreen} />
           <Stack.Screen name="PantryVision" component={PantryVisionScreen} />
@@ -43,8 +58,24 @@ export function RootNavigator() {
           <Stack.Screen name="Activity" component={ActivityScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
+          <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
         </>
       )}
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: theme.colors.background,
+  },
+  loadingText: {
+    color: theme.colors.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+});

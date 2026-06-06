@@ -14,13 +14,13 @@ export type DailyPick = {
 type DailyPicksSectionProps = {
   picks: DailyPick[];
   onOpenPick: (pick: DailyPick) => void;
-  onRefreshPractical: () => void;
+  onRefreshPicks: () => void;
 };
 
 export function DailyPicksSection({
   picks,
   onOpenPick,
-  onRefreshPractical,
+  onRefreshPicks,
 }: DailyPicksSectionProps) {
   return (
     <View>
@@ -30,10 +30,10 @@ export function DailyPicksSection({
           <Text style={styles.subtitle}>Moduna göre tek dokunuşla keşfet.</Text>
         </View>
         <TouchableOpacity
-          onPress={onRefreshPractical}
+          onPress={onRefreshPicks}
           activeOpacity={0.82}
           accessibilityRole="button"
-          accessibilityLabel="Pratik tarifi yenile"
+          accessibilityLabel="Günün seçimlerini yenile"
           style={styles.refresh}
         >
           <Ionicons name="refresh-outline" size={16} color={theme.colors.primary} />

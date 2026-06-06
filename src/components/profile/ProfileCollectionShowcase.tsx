@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { CollectionCard } from '../CollectionCard';
@@ -32,9 +32,9 @@ export function ProfileCollectionShowcase({
           </TouchableOpacity>
         ) : null}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      <View style={styles.grid}>
         {collections.map((collection) => (
-          <View key={collection.id}>
+          <View key={collection.id} style={styles.gridItem}>
             <CollectionCard
               collection={collection}
               onPress={() => onOpenCollection(collection.id)}
@@ -47,7 +47,7 @@ export function ProfileCollectionShowcase({
             ) : null}
           </View>
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -87,9 +87,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
   },
-  row: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     paddingBottom: 2,
+  },
+  gridItem: {
+    maxWidth: '100%',
   },
   savedBadge: {
     position: 'absolute',

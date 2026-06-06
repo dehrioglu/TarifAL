@@ -1,4 +1,4 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, type Ref } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +17,7 @@ type ScreenProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   edges?: Edge[];
+  scrollRef?: Ref<ScrollView>;
 }>;
 
 export function Screen({
@@ -25,9 +26,11 @@ export function Screen({
   style,
   contentStyle,
   edges = ['top', 'left', 'right'],
+  scrollRef,
 }: ScreenProps) {
   const content = scroll ? (
     <ScrollView
+      ref={scrollRef}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[styles.scrollContent, contentStyle]}

@@ -11,6 +11,22 @@ type CartItemCardProps = {
   onRemove: () => void;
 };
 
+const getSourceLabel = (item: CartItem) => {
+  if (item.source === 'familyList') {
+    return "Ev Listesi'nden aktarıldı";
+  }
+
+  if (item.source === 'sponsored') {
+    return item.sourceLabel ?? 'Sponsorlu öneri';
+  }
+
+  if (item.source === 'smartBasket') {
+    return "Akıllı Sepet'ten aktarıldı";
+  }
+
+  return undefined;
+};
+
 export function CartItemCard({ item, onIncrement, onDecrement, onRemove }: CartItemCardProps) {
   const normalizedName = item.name.toLocaleLowerCase('tr-TR');
   const fallbackUnit =
@@ -26,19 +42,19 @@ export function CartItemCard({ item, onIncrement, onDecrement, onRemove }: CartI
               : 'adet'
       : 'gr';
   const amountText = `${item.gram} ${item.unit ?? fallbackUnit}`;
+  const sourceLabel = getSourceLabel(item);
 
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
-        {item.source === 'smartBasket' || item.source === 'familyList' ? (
+        {sourceLabel ? (
           <View style={styles.sourceBadge}>
-            <Text style={styles.sourceBadgeText}>
-              {item.source === 'familyList' ? 'Ev Listesi\'nden aktarıldı' : 'Akıllı Sepet\'ten aktarıldı'}
-            </Text>
+            <Text style={styles.sourceBadgeText}>{sourceLabel}</Text>
           </View>
         ) : null}
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.recipe}>Tarif: {item.recipeTitle}</Text>
+        {item.brandName ? <Text style={styles.brand}>{item.brandName}</Text> : null}
         <Text style={styles.meta}>
           {amountText} • ₺{item.price.toFixed(2)} / adet
         </Text>
@@ -117,6 +133,11 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 12,
     fontWeight: '600',
+  },
+  brand: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
   },
   meta: {
     color: theme.colors.muted,

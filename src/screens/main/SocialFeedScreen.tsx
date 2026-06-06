@@ -1,9 +1,22 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  ImageBackground,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { CategoryInterestChip } from '../../components/personalization/CategoryInterestChip';
+import { CommentInput } from '../../components/CommentInput';
+import { CommentList } from '../../components/CommentList';
 import { DiscoverRecipeRail } from '../../components/discover/DiscoverRecipeRail';
 import { ProfileCollectionShowcase } from '../../components/profile/ProfileCollectionShowcase';
 import { PersonalizedDiscoverSection } from '../../components/personalization/PersonalizedDiscoverSection';
@@ -31,7 +44,12 @@ import {
 } from '../../personalization/tasteProfileStore';
 import { useUserTasteProfile } from '../../personalization/useUserTasteProfile';
 import { useAppStore } from '../../store/useAppStore';
-import { SocialFeedPost, SocialUser } from '../../types';
+import { SocialFeedPost, SocialUser, SponsoredCollection } from '../../types';
+import {
+  getSponsoredCollectionsForDiscover,
+  trackSponsoredCollectionOpened,
+} from '../../services/sponsoredPlacementService';
+import { buildCurrentSocialUser } from '../../utils/profileIdentity';
 
 const trendTags = ['tatlı', 'ekonomik', 'fit', 'ustaişi', '15dakika', 'geleneksel'];
 type ExploreFilter = 'all' | 'practical' | 'economic' | 'fit' | 'master' | 'ready';
@@ -51,8 +69,12 @@ export function SocialFeedScreen() {
   const [exploreFilter, setExploreFilter] = useState<ExploreFilter>('all');
   const [sharePost, setSharePost] = useState<SocialFeedPost | null>(null);
   const [triedPost, setTriedPost] = useState<SocialFeedPost | null>(null);
+  const [commentPost, setCommentPost] = useState<SocialFeedPost | null>(null);
+  const [sponsoredSheetCollection, setSponsoredSheetCollection] = useState<SponsoredCollection | null>(null);
+  const sponsoredSheetAnim = useRef(new Animated.Value(0)).current;
   const socialLikes = useAppStore((store) => store.socialLikes);
   const socialSaves = useAppStore((store) => store.socialSaves);
+  const socialComments = useAppStore((store) => store.socialComments);
   const socialPostStats = useAppStore((store) => store.socialPostStats);
   const socialPosts = useAppStore((store) => store.socialPosts);
   const followedUsers = useAppStore((store) => store.followedUsers);
@@ -64,6 +86,8 @@ export function SocialFeedScreen() {
   const toggleSocialLike = useAppStore((store) => store.toggleSocialLike);
   const toggleSocialSave = useAppStore((store) => store.toggleSocialSave);
   const toggleFollowUser = useAppStore((store) => store.toggleFollowUser);
+  const addSocialComment = useAppStore((store) => store.addSocialComment);
+  const toggleCommentLike = useAppStore((store) => store.toggleCommentLike);
   const voteSocialPoll = useAppStore((store) => store.voteSocialPoll);
   const toggleChallengeJoin = useAppStore((store) => store.toggleChallengeJoin);
   const addTriedRecipe = useAppStore((store) => store.addTriedRecipe);
@@ -80,30 +104,7 @@ export function SocialFeedScreen() {
   const { showToast, showDemoModal } = useFeedback();
   const { streak, completedToday, completeDailyAction } = useDailyReturn();
 
-  const currentSocialUser: SocialUser = useMemo(
-    () => ({
-      id: currentUser?.id ?? 'demo-user',
-      name: currentUser?.name ?? 'Enes Kervankaya',
-      username: '@eneschef',
-      avatarUrl:
-        currentUser?.avatarUrl ??
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=300&auto=format&fit=crop',
-      coverImageUrl:
-        'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=1200&auto=format&fit=crop',
-      bio: 'TarifAL kurucusu · Pratik tarifler, akıllı sepetler ve sosyal mutfak deneyimi.',
-      location: 'İstanbul',
-      followers: 1840,
-      following: 86,
-      recipeCount: 4,
-      totalLikes: 24800,
-      averageRating: 4.8,
-      badges: ['Kurucu', 'Sepet Ustası', 'TarifAL Onaylı'],
-      level: 'TarifAL Kurucusu',
-      isVerified: true,
-      expertiseAreas: ['Akıllı sepet', 'Pratik tarif', 'Ürün deneyimi'],
-    }),
-    [currentUser],
-  );
+  const currentSocialUser: SocialUser = useMemo(() => buildCurrentSocialUser(currentUser), [currentUser]);
 
   const usersById = useMemo(
     () =>
@@ -142,9 +143,74 @@ export function SocialFeedScreen() {
     () => sortedPosts.filter((post) => post.recipeId && post.imageUrl),
     [sortedPosts],
   );
+  const fastRailPosts = useMemo(
+    () => fillRailPosts(railPosts.filter((post) => (post.totalTime ?? post.prepTime ?? 999) <= 30), railPosts),
+    [railPosts],
+  );
+  const budgetRailPosts = useMemo(
+    () =>
+      fillRailPosts(
+        railPosts.filter(
+          (post) => (post.marketBasketPrice ?? 999) <= 220 || post.tags.includes('ekonomik'),
+        ),
+        railPosts,
+      ),
+    [railPosts],
+  );
+  const masterRailPosts = useMemo(
+    () => fillRailPosts(railPosts.filter((post) => post.difficulty === 'Zor'), railPosts),
+    [railPosts],
+  );
+  const readyRailPosts = useMemo(
+    () => fillRailPosts(railPosts.filter((post) => post.restaurantOrderAvailable), railPosts),
+    [railPosts],
+  );
+  const filteredRailPosts = useMemo(
+    () => fillRailPosts(visiblePosts.filter((post) => post.recipeId && post.imageUrl), railPosts),
+    [railPosts, visiblePosts],
+  );
   const unreadCount = mockNotifications.filter(
     (notification) => !(readNotifications[notification.id] ?? notification.isRead),
   ).length;
+  const sponsoredCollections = useMemo(() => getSponsoredCollectionsForDiscover(3), []);
+  const sponsoredCollectionPostsById = useMemo(
+    () =>
+      sponsoredCollections.reduce<Record<string, SocialFeedPost[]>>((acc, collection) => {
+        acc[collection.id] = railPosts
+          .filter((post) => post.recipeId && collection.recipeIds.includes(post.recipeId))
+          .slice(0, 4);
+        return acc;
+      }, {}),
+    [railPosts, sponsoredCollections],
+  );
+  const sponsoredSheetPosts = sponsoredSheetCollection
+    ? sponsoredCollectionPostsById[sponsoredSheetCollection.id] ?? []
+    : [];
+  const sponsoredSheetHeroImage = sponsoredSheetPosts[0]?.imageUrl;
+
+  useEffect(() => {
+    sponsoredCollections.forEach((collection) => {
+      trackSponsoredCollectionOpened(collection, {
+        userId: currentUser?.id,
+        userEmail: currentUser?.email,
+        sourceScreen: 'Discover',
+        isDemoMode: currentUser?.isDemo,
+      });
+    });
+  }, [currentUser?.email, currentUser?.id, currentUser?.isDemo, sponsoredCollections]);
+
+  useEffect(() => {
+    if (!sponsoredSheetCollection) {
+      return;
+    }
+
+    sponsoredSheetAnim.setValue(0);
+    Animated.timing(sponsoredSheetAnim, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [sponsoredSheetAnim, sponsoredSheetCollection]);
 
   const openRecipe = (post: SocialFeedPost) => {
     recordPostInteraction(post, 'view');
@@ -259,7 +325,7 @@ export function SocialFeedScreen() {
         }}
         onAddMarket={() => addMarketBasket(post)}
         onOrderReadyMeal={() => orderReadyMeal(post)}
-        onComment={() => openRecipe(post)}
+        onComment={() => setCommentPost(post)}
         onShare={() => setSharePost(post)}
         onTagPress={handleTag}
         onVotePoll={(optionId) => {
@@ -355,32 +421,65 @@ export function SocialFeedScreen() {
           onOpenPost={openRecipe}
         />
 
+        {sponsoredCollections.map((collection) => {
+          const posts = sponsoredCollectionPostsById[collection.id] ?? [];
+          if (posts.length === 0) {
+            return null;
+          }
+
+          return (
+            <SponsoredDiscoverCollection
+              key={collection.id}
+              collection={collection}
+              posts={posts}
+              onOpenCollection={() => {
+                trackSponsoredCollectionOpened(collection, {
+                  userId: currentUser?.id,
+                  userEmail: currentUser?.email,
+                  sourceScreen: 'Discover',
+                  isDemoMode: currentUser?.isDemo,
+                });
+                setSponsoredSheetCollection(collection);
+              }}
+              onOpenPost={(post) => {
+                trackSponsoredCollectionOpened(collection, {
+                  userId: currentUser?.id,
+                  userEmail: currentUser?.email,
+                  sourceScreen: 'DiscoverRecipe',
+                  isDemoMode: currentUser?.isDemo,
+                });
+                openRecipe(post);
+              }}
+            />
+          );
+        })}
+
         {exploreFilter === 'all' ? (
           <>
             <DiscoverRecipeRail
-              title="15 dakikada hazır"
-              subtitle="Karar vermek için fazla düşünmeye gerek yok."
-              posts={railPosts.filter((post) => (post.totalTime ?? 999) <= 15)}
+              title="Pratik hızlı seçimler"
+              subtitle="15-30 dakikada sofraya gelen, mantıklı ve uygulanabilir öneriler."
+              posts={fastRailPosts}
               onOpenPost={openRecipe}
             />
             <DiscoverRecipeRail
-              title="₺150 altı tarifler"
-              subtitle="Bütçeyi koruyan, sepete dönüşmeye hazır seçimler."
-              posts={railPosts.filter((post) => (post.marketBasketPrice ?? 999) <= 150)}
+              title="Akıllı bütçe seçkisi"
+              subtitle="Kaliteden ödün vermeden fiyatı kontrollü, sepete dönüşmeye hazır öneriler."
+              posts={budgetRailPosts}
               accent="#12B76A"
               onOpenPost={openRecipe}
             />
             <DiscoverRecipeRail
               title="Usta işi hafta sonu"
               subtitle="Şeflerin kaydettiği daha iddialı sofralar."
-              posts={railPosts.filter((post) => post.difficulty === 'Zor')}
+              posts={masterRailPosts}
               accent="#0B1020"
               onOpenPost={openRecipe}
             />
             <DiscoverRecipeRail
               title="Hazır sipariş alternatifi olanlar"
               subtitle="Evde yap veya sofrana gelsin."
-              posts={railPosts.filter((post) => post.restaurantOrderAvailable)}
+              posts={readyRailPosts}
               onOpenPost={openRecipe}
             />
           </>
@@ -388,7 +487,7 @@ export function SocialFeedScreen() {
           <DiscoverRecipeRail
             title="Seçimine göre öne çıkanlar"
             subtitle={`${visiblePosts.length} tarif ve topluluk gönderisi bulundu.`}
-            posts={visiblePosts}
+            posts={filteredRailPosts}
             onOpenPost={openRecipe}
           />
         )}
@@ -459,6 +558,193 @@ export function SocialFeedScreen() {
       </Screen>
 
       <TarifALBotFab onPress={() => navigation.getParent()?.navigate('AiChefChat')} />
+      <Modal visible={Boolean(commentPost)} transparent animationType="fade" onRequestClose={() => setCommentPost(null)}>
+        <View style={styles.commentBackdrop}>
+          <View style={styles.commentSheet}>
+            <View style={styles.commentHeader}>
+              <View style={styles.commentHeaderCopy}>
+                <Text style={styles.commentEyebrow}>Topluluk yorumları</Text>
+                <Text style={styles.commentTitle} numberOfLines={2}>
+                  {commentPost?.title ?? 'Tarif yorumları'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setCommentPost(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Yorumları kapat"
+                style={styles.commentCloseButton}
+              >
+                <Ionicons name="close" size={21} color={theme.colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView style={styles.commentListArea} contentContainerStyle={styles.commentListContent}>
+              <CommentList
+                comments={commentPost ? socialComments[commentPost.id] ?? [] : []}
+                usersById={usersById}
+                currentUserName={currentSocialUser.name}
+                onToggleLike={toggleCommentLike}
+              />
+            </ScrollView>
+
+            <CommentInput
+              onSubmit={(text) => {
+                if (!commentPost) {
+                  return;
+                }
+
+                addSocialComment(commentPost.id, text);
+                showToast('Yorumun eklendi.', 'success');
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={Boolean(sponsoredSheetCollection)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSponsoredSheetCollection(null)}
+      >
+        <View style={styles.sponsoredSheetBackdrop}>
+          <Animated.View
+            style={[
+              styles.sponsoredSheet,
+              {
+                opacity: sponsoredSheetAnim,
+                transform: [
+                  {
+                    translateY: sponsoredSheetAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [18, 0],
+                    }),
+                  },
+                  {
+                    scale: sponsoredSheetAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.sponsoredSheetHeader}>
+              {sponsoredSheetCollection ? (
+                <BrandLogoBadge collection={sponsoredSheetCollection} size="large" />
+              ) : null}
+              <View style={styles.sponsoredSheetCopy}>
+                <Text style={styles.sponsoredSheetEyebrow}>Sponsorlu marka vitrini</Text>
+                <Text style={styles.sponsoredSheetTitle}>{sponsoredSheetCollection?.title ?? 'TarifAL vitrini'}</Text>
+                <Text style={styles.sponsoredSheetText}>
+                  {sponsoredSheetCollection?.subtitle ?? 'Tarif ve ürün eşleşmelerini incele.'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setSponsoredSheetCollection(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Sponsorlu vitrini kapat"
+                style={styles.commentCloseButton}
+              >
+                <Ionicons name="close" size={21} color={theme.colors.text} />
+              </Pressable>
+            </View>
+
+            {sponsoredSheetHeroImage ? (
+              <ImageBackground
+                source={{ uri: sponsoredSheetHeroImage }}
+                style={styles.sponsoredSheetHero}
+                imageStyle={styles.sponsoredSheetHeroImage}
+              >
+                <View style={styles.sponsoredSheetHeroOverlay} />
+                <View style={styles.sponsoredSheetHeroContent}>
+                  <View style={styles.sponsoredSheetHeroBrand}>
+                    {sponsoredSheetCollection ? (
+                      <BrandLogoBadge collection={sponsoredSheetCollection} size="small" variant="flat" />
+                    ) : null}
+                  </View>
+                  <View style={styles.sponsoredSheetHeroCopy}>
+                    <Text style={styles.sponsoredSheetHeroEyebrow}>
+                      {sponsoredSheetCollection?.brandName ?? 'TarifAL'} partner vitrini
+                    </Text>
+                    <Text style={styles.sponsoredSheetHeroTitle}>
+                      Tarif ihtiyacına bağlı ürün eşleşmesi
+                    </Text>
+                  </View>
+                </View>
+              </ImageBackground>
+            ) : null}
+
+            <View style={styles.sponsoredSheetStats}>
+              <View style={styles.sponsoredSheetStat}>
+                <Text style={styles.sponsoredSheetStatValue}>{sponsoredSheetPosts.length}</Text>
+                <Text style={styles.sponsoredSheetStatLabel}>tarif eşleşmesi</Text>
+              </View>
+              <View style={styles.sponsoredSheetStat}>
+                <Text style={styles.sponsoredSheetStatValue}>
+                  {sponsoredSheetCollection?.productIds.length ?? 0}
+                </Text>
+                <Text style={styles.sponsoredSheetStatLabel}>ürün önerisi</Text>
+              </View>
+              <View style={styles.sponsoredSheetStat}>
+                <Text style={styles.sponsoredSheetStatValue}>Demo</Text>
+                <Text style={styles.sponsoredSheetStatLabel}>gelir vitrini</Text>
+              </View>
+            </View>
+
+            <ScrollView style={styles.sponsoredSheetList} contentContainerStyle={styles.sponsoredSheetListContent}>
+              {sponsoredSheetPosts.map((post) => (
+                <TouchableOpacity
+                  key={post.id}
+                  onPress={() => {
+                    const activeCollection = sponsoredSheetCollection;
+                    setSponsoredSheetCollection(null);
+                    if (activeCollection) {
+                      trackSponsoredCollectionOpened(activeCollection, {
+                        userId: currentUser?.id,
+                        userEmail: currentUser?.email,
+                        sourceScreen: 'SponsoredCollectionSheet',
+                        isDemoMode: currentUser?.isDemo,
+                      });
+                    }
+                    openRecipe(post);
+                  }}
+                  activeOpacity={0.84}
+                  style={styles.sponsoredSheetRecipe}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${post.title} sponsorlu tarifini aç`}
+                >
+                  <ImageBackground
+                    source={{ uri: post.imageUrl }}
+                    style={styles.sponsoredSheetRecipeImage}
+                    imageStyle={styles.sponsoredSheetRecipeImageStyle}
+                  >
+                    <View style={styles.sponsoredSheetRecipeImageBadge}>
+                      <Ionicons name="restaurant-outline" size={14} color="#FFFFFF" />
+                    </View>
+                  </ImageBackground>
+                  <View style={styles.sponsoredSheetRecipeCopy}>
+                    <Text style={styles.sponsoredSheetRecipeTitle} numberOfLines={2}>
+                      {post.title}
+                    </Text>
+                    <Text style={styles.sponsoredSheetRecipeMeta}>
+                      {post.totalTime ?? post.prepTime ?? 0} dk · ₺{post.marketBasketPrice ?? 0} sepet
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={18} color={theme.colors.primary} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.sponsoredSheetInsight}>
+              <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
+              <Text style={styles.sponsoredSheetInsightText}>
+                Bu alan reklam panosu değil; tarif ihtiyacına bağlı ürün ve marka eşleşmesi demosudur.
+              </Text>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
       <ShareRecipeModal
         visible={Boolean(sharePost)}
         title={sharePost?.title ?? 'Tarif paylaş'}
@@ -471,6 +757,111 @@ export function SocialFeedScreen() {
         onClose={() => setTriedPost(null)}
         onSubmit={handleTriedSubmit}
       />
+    </View>
+  );
+}
+
+function SponsoredDiscoverCollection({
+  collection,
+  posts,
+  onOpenCollection,
+  onOpenPost,
+}: {
+  collection: SponsoredCollection;
+  posts: SocialFeedPost[];
+  onOpenCollection: () => void;
+  onOpenPost: (post: SocialFeedPost) => void;
+}) {
+  return (
+    <View style={styles.sponsoredCollectionCard}>
+      <View style={styles.sponsoredCollectionTop}>
+        <BrandLogoBadge collection={collection} size="medium" />
+        <View style={styles.sponsoredCollectionCopy}>
+          <Text style={styles.sponsoredCollectionLabel}>{collection.sponsorLabel}</Text>
+          <Text style={styles.sponsoredCollectionTitle}>{collection.title}</Text>
+          <Text style={styles.sponsoredCollectionSubtitle}>{collection.subtitle}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={onOpenCollection}
+          activeOpacity={0.84}
+          style={styles.sponsoredCollectionCta}
+          accessibilityRole="button"
+          accessibilityLabel={`${collection.title} marka vitrinini incele`}
+        >
+          <Text style={styles.sponsoredCollectionCtaText}>{collection.ctaLabel}</Text>
+          <Ionicons name="arrow-forward" size={15} color={theme.colors.primary} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.sponsoredMetricRow}>
+        <View style={styles.sponsoredMetricPill}>
+          <Ionicons name="storefront-outline" size={13} color={theme.colors.primary} />
+          <Text style={styles.sponsoredMetricText}>{posts.length} tarif eşleşmesi</Text>
+        </View>
+        <View style={styles.sponsoredMetricPill}>
+          <Ionicons name="basket-outline" size={13} color={theme.colors.primary} />
+          <Text style={styles.sponsoredMetricText}>Sepete doğal geçiş</Text>
+        </View>
+      </View>
+      <View style={styles.sponsoredRecipeRow}>
+        {posts.slice(0, 3).map((post) => (
+          <TouchableOpacity
+            key={post.id}
+            onPress={() => onOpenPost(post)}
+            activeOpacity={0.84}
+            style={styles.sponsoredRecipePill}
+            accessibilityRole="button"
+            accessibilityLabel={`${post.title} tarifini aç`}
+          >
+            <Text style={styles.sponsoredRecipeText} numberOfLines={1}>{post.title}</Text>
+            <Text style={styles.sponsoredRecipeMeta} numberOfLines={1}>
+              {post.totalTime ?? post.prepTime ?? 0} dk · ₺{post.marketBasketPrice ?? 0}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function BrandLogoBadge({
+  collection,
+  size,
+  variant = 'soft',
+}: {
+  collection: SponsoredCollection;
+  size: 'small' | 'medium' | 'large';
+  variant?: 'soft' | 'flat';
+}) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const logoSize = size === 'large' ? 58 : size === 'medium' ? 52 : 34;
+  const imageSize = size === 'large' ? 40 : size === 'medium' ? 36 : 24;
+  const initials = collection.brandName.slice(0, 2).toLocaleUpperCase('tr-TR');
+
+  return (
+    <View
+      style={[
+        styles.brandLogoBadge,
+        {
+          width: logoSize,
+          height: logoSize,
+          borderRadius: size === 'small' ? 13 : 18,
+          backgroundColor: variant === 'flat' ? '#FFFFFF' : '#FFF1EA',
+        },
+      ]}
+    >
+      {collection.brandLogoUrl && !logoFailed ? (
+        <Image
+          source={{ uri: collection.brandLogoUrl }}
+          style={{ width: imageSize, height: imageSize }}
+          resizeMode="contain"
+          onError={() => setLogoFailed(true)}
+          accessibilityLabel={`${collection.brandName} logosu`}
+        />
+      ) : (
+        <Text style={[styles.brandLogoFallback, size === 'small' && styles.brandLogoFallbackSmall]}>
+          {initials}
+        </Text>
+      )}
     </View>
   );
 }
@@ -589,6 +980,103 @@ const styles = StyleSheet.create({
   collectionWrap: {
     marginTop: 20,
   },
+  sponsoredCollectionCard: {
+    marginTop: 18,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFF8F4',
+    padding: 14,
+    gap: 12,
+    ...theme.shadow,
+    shadowOpacity: 0.04,
+  },
+  sponsoredCollectionTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  sponsoredCollectionCopy: {
+    flex: 1,
+  },
+  sponsoredCollectionLabel: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  sponsoredCollectionTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  sponsoredCollectionSubtitle: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  sponsoredCollectionCta: {
+    minHeight: 34,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sponsoredCollectionCtaText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  sponsoredMetricRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  sponsoredMetricPill: {
+    minHeight: 30,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sponsoredMetricText: {
+    color: theme.colors.muted,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  sponsoredRecipeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  sponsoredRecipePill: {
+    flexGrow: 1,
+    flexBasis: 180,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+  },
+  sponsoredRecipeText: {
+    color: theme.colors.text,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  sponsoredRecipeMeta: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 9,
+    fontWeight: '800',
+  },
   sectionHeader: {
     marginTop: 20,
     marginBottom: 10,
@@ -611,6 +1099,22 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingBottom: 2,
   },
+  brandLogoBadge: {
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  brandLogoFallback: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  brandLogoFallbackSmall: {
+    fontSize: 10,
+  },
   feedList: {
     gap: 16,
   },
@@ -632,6 +1136,249 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
   },
+  commentBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11,16,32,0.5)',
+    padding: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentSheet: {
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '86%',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    ...theme.shadow,
+    shadowOpacity: 0.16,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  commentHeaderCopy: {
+    flex: 1,
+  },
+  commentEyebrow: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  commentTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '900',
+  },
+  commentCloseButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentListArea: {
+    maxHeight: 390,
+  },
+  commentListContent: {
+    paddingBottom: 12,
+  },
+  sponsoredSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11,16,32,0.52)',
+    padding: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sponsoredSheet: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '88%',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    gap: 14,
+    ...theme.shadow,
+    shadowOpacity: 0.18,
+  },
+  sponsoredSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  sponsoredSheetCopy: {
+    flex: 1,
+  },
+  sponsoredSheetEyebrow: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  sponsoredSheetTitle: {
+    marginTop: 4,
+    color: theme.colors.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '900',
+  },
+  sponsoredSheetText: {
+    marginTop: 5,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  sponsoredSheetHero: {
+    height: 136,
+    borderRadius: 24,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: 14,
+    backgroundColor: theme.colors.text,
+  },
+  sponsoredSheetHeroImage: {
+    borderRadius: 24,
+  },
+  sponsoredSheetHeroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11,16,32,0.42)',
+  },
+  sponsoredSheetHeroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sponsoredSheetHeroBrand: {
+    width: 48,
+    height: 48,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sponsoredSheetHeroCopy: {
+    flex: 1,
+  },
+  sponsoredSheetHeroEyebrow: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  sponsoredSheetHeroTitle: {
+    marginTop: 4,
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  sponsoredSheetStats: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sponsoredSheetStat: {
+    flex: 1,
+    minHeight: 62,
+    borderRadius: 20,
+    backgroundColor: '#FFF8F4',
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    padding: 10,
+    justifyContent: 'center',
+  },
+  sponsoredSheetStatValue: {
+    color: theme.colors.primary,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  sponsoredSheetStatLabel: {
+    marginTop: 3,
+    color: theme.colors.muted,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '800',
+  },
+  sponsoredSheetList: {
+    maxHeight: 310,
+  },
+  sponsoredSheetListContent: {
+    gap: 9,
+    paddingBottom: 2,
+  },
+  sponsoredSheetRecipe: {
+    minHeight: 74,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sponsoredSheetRecipeImage: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    padding: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  sponsoredSheetRecipeImageStyle: {
+    borderRadius: 18,
+  },
+  sponsoredSheetRecipeImageBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sponsoredSheetRecipeCopy: {
+    flex: 1,
+  },
+  sponsoredSheetRecipeTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  sponsoredSheetRecipeMeta: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  sponsoredSheetInsight: {
+    borderRadius: 20,
+    backgroundColor: '#FFF8F4',
+    borderWidth: 1,
+    borderColor: '#FFE0CF',
+    padding: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sponsoredSheetInsightText: {
+    flex: 1,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
 });
 
 function matchesExploreFilter(post: SocialFeedPost, filter: ExploreFilter) {
@@ -642,7 +1389,7 @@ function matchesExploreFilter(post: SocialFeedPost, filter: ExploreFilter) {
     return (post.totalTime ?? post.prepTime ?? 999) <= 30;
   }
   if (filter === 'economic') {
-    return (post.marketBasketPrice ?? 999) <= 150 || post.tags.includes('ekonomik');
+    return (post.marketBasketPrice ?? 999) <= 220 || post.tags.includes('ekonomik');
   }
   if (filter === 'fit') {
     return post.tags.some((tag) => ['fit', 'protein', 'saglikli'].includes(tag.toLocaleLowerCase('tr-TR')));
@@ -651,4 +1398,19 @@ function matchesExploreFilter(post: SocialFeedPost, filter: ExploreFilter) {
     return post.difficulty === 'Zor' || post.tags.some((tag) => tag.toLocaleLowerCase('tr-TR').includes('ustaisi'));
   }
   return Boolean(post.restaurantOrderAvailable);
+}
+
+function fillRailPosts(primaryPosts: SocialFeedPost[], fallbackPosts: SocialFeedPost[], limit = 6) {
+  const seen = new Set<string>();
+
+  return [...primaryPosts, ...fallbackPosts]
+    .filter((post) => {
+      if (!post.recipeId || !post.imageUrl || seen.has(post.id)) {
+        return false;
+      }
+
+      seen.add(post.id);
+      return true;
+    })
+    .slice(0, limit);
 }

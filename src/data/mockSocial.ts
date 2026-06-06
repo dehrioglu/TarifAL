@@ -644,7 +644,7 @@ export const mockSocialComments: Record<string, SocialComment[]> = {
       id: 'comment-hard-5',
       recipeId: 'post-risotto-balikci',
       userId: 'user-gurme-gezgin',
-      text: 'Restoran alternatifiyle birlikte gostermek yatırımcı demosunda cok guclu durur.',
+      text: 'Restoran alternatifiyle birlikte göstermek karar vermeyi çok kolaylaştırıyor.',
       likes: 17,
       createdAt: 'Dun',
     },
@@ -739,7 +739,7 @@ export const mockSocialCollections: SocialCollection[] = [
     id: 'collection-master',
     userId: 'demo-user',
     title: 'Usta isi tarifler',
-    description: 'Yatirimci demosunda premium gorunen, zor ve detayli hafta sonu tarifleri.',
+    description: 'Premium görünen, zor ve detaylı hafta sonu tarifleri.',
     recipeIds: [
       'recipe-icli-kofte',
       'recipe-hunkar-begendi',

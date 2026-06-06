@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isFounderEmail() {
+      return signedIn() && request.auth.token.email == 'kervankayaenes@gmail.com';
+    }
+
+    function isPrivileged() {
+      return signedIn() && (
+        isFounderEmail() ||
+        request.auth.token.role == 'founder' ||
+        request.auth.token.role == 'admin'
+      );
+    }
+
+    function isSafeImageUpload() {
+      return request.resource != null &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /recipeImages/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if ((signedIn() && request.auth.uid == userId) || isPrivileged()) && isSafeImageUpload();
+    }
+
+    match /profileImages/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if ((signedIn() && request.auth.uid == userId) || isPrivileged()) && isSafeImageUpload();
+    }
+
+    match /sponsoredProducts/{fileName} {
+      allow read: if true;
+      allow write: if isPrivileged() && isSafeImageUpload();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

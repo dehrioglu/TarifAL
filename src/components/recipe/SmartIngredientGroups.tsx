@@ -17,8 +17,8 @@ export function SmartIngredientGroups({
 }: SmartIngredientGroupsProps) {
   return (
     <View style={styles.root}>
-      <Text style={styles.sectionTitle}>Akıllı malzeme listesi</Text>
-      <Text style={styles.sectionSubtitle}>Dolabın, eksiklerin ve kullanabileceğin alternatifler tek yerde.</Text>
+      <Text style={styles.sectionTitle}>Malzeme Durumu</Text>
+      <Text style={styles.sectionSubtitle}>Evde olanlar, eksikler ve alternatif öneriler tek yerde.</Text>
 
       <IngredientGroup
         icon="checkmark-circle"

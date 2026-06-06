@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
@@ -9,47 +8,8 @@ type TarifALBotFabProps = {
 };
 
 export function TarifALBotFab({ onPress }: TarifALBotFabProps) {
-  const float = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(float, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(float, {
-          toValue: 0,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    loop.start();
-
-    return () => loop.stop();
-  }, [float]);
-
   return (
-    <Animated.View
-      style={[
-        styles.fabWrap,
-        {
-          transform: [
-            {
-              translateY: float.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, -5],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
+    <View style={styles.fabWrap}>
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.88}
@@ -57,12 +17,10 @@ export function TarifALBotFab({ onPress }: TarifALBotFabProps) {
         accessibilityLabel="AI Şef’e sor"
         style={styles.fab}
       >
-        <View style={styles.spark}>
-          <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-        </View>
-        <Text style={styles.text}>AI Şef</Text>
+        <Ionicons name="sparkles" size={21} color="#FFFFFF" />
       </TouchableOpacity>
-    </Animated.View>
+      <Text style={styles.caption}>AI Şef</Text>
+    </View>
   );
 }
 
@@ -70,31 +28,25 @@ const styles = StyleSheet.create({
   fabWrap: {
     position: 'absolute',
     right: 18,
-    bottom: 96,
-    ...theme.orangeShadow,
+    bottom: 104,
+    alignItems: 'center',
   },
   fab: {
-    minWidth: 72,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...theme.orangeShadow,
+    shadowOpacity: 0.18,
   },
-  spark: {
-    width: 27,
-    height: 27,
-    borderRadius: 13.5,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  caption: {
+    marginTop: 3,
+    color: theme.colors.primary,
+    fontSize: 10,
     fontWeight: '900',
   },
 });

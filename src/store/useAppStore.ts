@@ -1,24 +1,31 @@
 import { create } from 'zustand';
 
 import { demoFamilyAccount } from '../data/demoFamily';
+import { normalizeBetaCode, validBetaCodes } from '../data/betaConfig';
 import { mockSocialComments, mockSocialRecipes } from '../data/mockSocial';
 import { mockSocialFeedExtras } from '../data/mockSocialPosts';
 import { mockTriedRecipes } from '../data/mockTriedRecipes';
 import { demoSmartBasketMarket, smartBasketBudgetModes } from '../data/demoSmartBasket';
 import { demoRecipes } from '../data/demoRecipes';
 import { onboardingStorage } from '../onboarding/onboardingStorage';
-import { signInWithEmail, registerWithEmail, signOutUser } from '../services/authService';
+import { trackEvent } from '../services/analyticsService';
 import {
-  fetchRecipes,
-  fetchUserLikes,
+  DEMO_USER,
+  signInWithEmail,
+  registerWithEmail,
+  signOutUser,
+  subscribeToAuthState,
+} from '../services/authService';
+import { fetchUserCart, replaceUserCart } from '../services/cartService';
+import { fetchUserFavorites, setUserFavorite } from '../services/favoriteService';
+import {
   fetchUserOrders,
-  saveCartItem,
-  saveLike,
   saveOrder,
-  saveRecipe,
-  syncUser,
 } from '../services/firestoreService';
+import { fetchRemoteRecipes, saveUserRecipe } from '../services/recipeService';
+import { ensureUserProfile, fetchUserProfile, joinBetaProgram as saveBetaProgram } from '../services/userService';
 import {
+  AccountMode,
   AiSuggestion,
   AppUser,
   CartItem,
@@ -36,6 +43,8 @@ import {
   SocialComment,
   SocialRecipePost,
   SocialPostStats,
+  SponsoredPlacementType,
+  SponsoredProduct,
   SmartBasketFlowState,
   SmartBasketInput,
   SmartBasketPlan,
@@ -51,6 +60,9 @@ import {
 
 type AppState = {
   user: AppUser | null;
+  profile: AppUser | null;
+  accountMode: AccountMode;
+  authInitialized: boolean;
   authLoading: boolean;
   recipes: Recipe[];
   likes: Record<string, boolean>;
@@ -58,6 +70,8 @@ type AppState = {
   restaurantCart: RestaurantCartItem[];
   orders: Order[];
   dataLoading: boolean;
+  dataError?: string;
+  pendingFavoriteIds: Record<string, boolean>;
   pantryText: string;
   userGoal: UserGoal;
   recipeLists: Record<FavoriteListType, string[]>;
@@ -81,9 +95,12 @@ type AppState = {
   shouldStartGuidedTour: boolean;
   hasCompletedGuidedTour: boolean;
   hasSkippedGuidedTour: boolean;
+  initializeAuthSession: () => () => void;
+  openDemoMode: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  joinBetaProgram: (betaCode: string) => Promise<void>;
   loadRemoteData: (userId: string) => Promise<void>;
   completeWelcomeOnboarding: (startTour: boolean) => Promise<void>;
   consumePendingGuidedTour: () => void;
@@ -110,6 +127,10 @@ type AppState = {
   removeFamilyShoppingItem: (itemId: string) => void;
   addFamilyListToCart: () => void;
   addIngredientToCart: (recipe: Recipe, ingredient: Ingredient, alternative?: MarketAlternative) => void;
+  addSponsoredProductToCart: (
+    product: SponsoredProduct,
+    context?: { recipeId?: string; recipeTitle?: string; placementType?: SponsoredPlacementType },
+  ) => void;
   addRestaurantMealToCart: (recipe: Recipe, restaurant: RestaurantOption) => void;
   addMissingIngredientsToCart: (recipeId: string, pantryText?: string) => void;
   addRecipeToCart: (recipeId: string) => void;
@@ -127,7 +148,7 @@ type AppState = {
   removeRestaurantItem: (itemId: string) => void;
   clearRestaurantCart: () => void;
   placeOrder: (address: string, options?: PlaceOrderOptions) => Promise<Order>;
-  addRecipe: (payload: NewRecipePayload) => Recipe;
+  addRecipe: (payload: NewRecipePayload) => Promise<Recipe>;
   suggestRecipes: (pantryText: string) => AiSuggestion[];
 };
 
@@ -193,6 +214,14 @@ const mergePollOptionVotes = (persistedVotes?: Record<string, Record<string, num
   ...initialPollOptionVotes,
   ...(persistedVotes ?? {}),
 });
+
+const mergeRecipes = (remoteRecipes: Recipe[]) => {
+  const recipes = new Map(demoRecipes.map((recipe) => [recipe.id, recipe]));
+
+  remoteRecipes.forEach((recipe) => recipes.set(recipe.id, recipe));
+
+  return Array.from(recipes.values());
+};
 
 const createCartItem = (
   recipe: Recipe,
@@ -314,12 +343,88 @@ const writePersistedDemoState = (state: PersistedDemoState) => {
 
 const persistedDemoState = readPersistedDemoState();
 
+const demoSessionData = () => {
+  const persisted = readPersistedDemoState();
+
+  return {
+    likes: persisted.likes ?? initialLikes,
+    cart: persisted.cart ?? [
+      {
+        id: 'recipe-kunefe_kunefe-kadayif',
+        recipeId: 'recipe-kunefe',
+        recipeTitle: 'Künefe',
+        ingredientId: 'kunefe-kadayif',
+        name: 'Tel kadayıf',
+        gram: 250,
+        price: 45,
+        quantity: 1,
+      },
+    ],
+    orders: persisted.orders ?? [],
+    recipeLists: persisted.recipeLists ?? {
+      favorites: ['recipe-kunefe'],
+      cookLater: ['recipe-adana', 'recipe-mercimek'],
+      cookedBefore: ['recipe-menemen'],
+    },
+  };
+};
+
+const cartSyncQueues = new Map<string, Promise<void>>();
+
+const persistAccountCart = (state: AppState) => {
+  if (state.accountMode !== 'account' || !state.user) {
+    return;
+  }
+
+  const userId = state.user.id;
+  const cart = state.cart;
+  const previous = cartSyncQueues.get(userId) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => replaceUserCart(userId, cart));
+
+  cartSyncQueues.set(userId, next);
+
+  void next
+    .then(() => {
+      if (cartSyncQueues.get(userId) === next) {
+        cartSyncQueues.delete(userId);
+      }
+    })
+    .catch(() => {
+      useAppStore.setState({
+        dataError: 'Sepet buluta kaydedilemedi. Bağlantını kontrol edip tekrar deneyebilirsin.',
+      });
+    });
+};
+
+const getCartTotal = (cart: CartItem[]) =>
+  Math.round(cart.reduce((sum, item) => sum + item.price * item.quantity, 0));
+
+const trackStoreEvent = (
+  state: AppState,
+  eventName: Parameters<typeof trackEvent>[0],
+  payload: Parameters<typeof trackEvent>[1] = {},
+) => {
+  void trackEvent(eventName, {
+    userId: state.user?.id,
+    userEmail: state.user?.email,
+    isDemoMode: state.accountMode === 'demo',
+    ...payload,
+  });
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
-  user: null,
+  user: DEMO_USER,
+  profile: DEMO_USER,
+  accountMode: 'demo',
+  authInitialized: false,
   authLoading: false,
   recipes: demoRecipes,
   likes: persistedDemoState.likes ?? initialLikes,
   dataLoading: false,
+  dataError: undefined,
+  pendingFavoriteIds: {},
   pantryText: persistedDemoState.pantryText ?? 'yumurta, domates, mercimek',
   userGoal: persistedDemoState.userGoal ?? 'Pratik yemek yapmak',
   recipeLists: persistedDemoState.recipeLists ?? {
@@ -372,14 +477,111 @@ export const useAppStore = create<AppState>((set, get) => ({
   hasCompletedGuidedTour: false,
   hasSkippedGuidedTour: false,
 
+  initializeAuthSession: () =>
+    subscribeToAuthState(async (firebaseUser) => {
+      if (!firebaseUser) {
+        const demo = demoSessionData();
+
+        set({
+          user: DEMO_USER,
+          profile: DEMO_USER,
+          accountMode: 'demo',
+          authInitialized: true,
+          authLoading: false,
+          dataLoading: false,
+          dataError: undefined,
+          recipes: demoRecipes,
+          likes: demo.likes,
+          cart: demo.cart,
+          orders: demo.orders,
+          recipeLists: demo.recipeLists,
+          needsWelcomeOnboarding: false,
+          shouldStartGuidedTour: false,
+        });
+        void trackEvent('demo_mode_used', {
+          userId: DEMO_USER.id,
+          userEmail: DEMO_USER.email,
+          isDemoMode: true,
+          sourceScreen: 'app_start',
+        });
+        return;
+      }
+
+      const onboarding = await onboardingStorage.getSnapshot(firebaseUser.id);
+
+      set({
+        user: firebaseUser,
+        profile: firebaseUser,
+        accountMode: 'account',
+        authInitialized: true,
+        authLoading: false,
+        hasSeenWelcomeOnboarding: onboarding.hasSeenWelcomeOnboarding,
+        shouldStartGuidedTour: false,
+        hasCompletedGuidedTour: onboarding.hasCompletedGuidedTour,
+        hasSkippedGuidedTour: onboarding.hasSkippedGuidedTour,
+      });
+      void trackEvent('real_account_used', {
+        userId: firebaseUser.id,
+        userEmail: firebaseUser.email,
+        isDemoMode: false,
+        sourceScreen: 'app_start',
+      });
+
+      try {
+        const profile = await ensureUserProfile(firebaseUser);
+
+        set({
+          user: profile,
+          profile,
+          dataError: undefined,
+        });
+        await get().loadRemoteData(firebaseUser.id);
+      } catch {
+        set({
+          dataLoading: false,
+          dataError: 'Hesap verileri yüklenemedi. Yerel içerikler kullanılmaya devam ediyor.',
+        });
+      }
+    }),
+
+  openDemoMode: () => {
+    const demo = demoSessionData();
+
+    set({
+      user: DEMO_USER,
+      profile: DEMO_USER,
+      accountMode: 'demo',
+      authInitialized: true,
+      authLoading: false,
+      dataLoading: false,
+      dataError: undefined,
+      recipes: demoRecipes,
+      likes: demo.likes,
+      cart: demo.cart,
+      orders: demo.orders,
+      recipeLists: demo.recipeLists,
+      needsWelcomeOnboarding: false,
+      shouldStartGuidedTour: false,
+    });
+    void trackEvent('demo_mode_used', {
+      userId: DEMO_USER.id,
+      userEmail: DEMO_USER.email,
+      isDemoMode: true,
+      sourceScreen: 'login',
+    });
+  },
+
   signIn: async (email, password) => {
     set({ authLoading: true });
     try {
       const user = await signInWithEmail(email.trim(), password);
-      const onboarding = await onboardingStorage.getSnapshot(user.id);
-      await syncUser(user);
+      const profile = user.isDemo ? user : await ensureUserProfile(user);
+      const onboarding = await onboardingStorage.getSnapshot(profile.id);
       set({
-        user,
+        user: profile,
+        profile,
+        accountMode: profile.isDemo ? 'demo' : 'account',
+        authInitialized: true,
         authLoading: false,
         hasSeenWelcomeOnboarding: onboarding.hasSeenWelcomeOnboarding,
         needsWelcomeOnboarding: false,
@@ -387,7 +589,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         hasCompletedGuidedTour: onboarding.hasCompletedGuidedTour,
         hasSkippedGuidedTour: onboarding.hasSkippedGuidedTour,
       });
-      await get().loadRemoteData(user.id);
+      trackStoreEvent(get(), profile.isDemo ? 'demo_mode_used' : 'user_logged_in', {
+        sourceScreen: 'LoginScreen',
+      });
+      if (!profile.isDemo) {
+        trackStoreEvent(get(), 'real_account_used', { sourceScreen: 'LoginScreen' });
+      }
+      if (!profile.isDemo) {
+        await get().loadRemoteData(profile.id);
+      }
     } catch (error) {
       set({ authLoading: false });
       throw error;
@@ -398,10 +608,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ authLoading: true });
     try {
       const user = await registerWithEmail(name.trim(), email.trim(), password);
-      const onboarding = await onboardingStorage.getSnapshot(user.id);
-      await syncUser(user);
+      const profile = user.isDemo ? user : await ensureUserProfile(user);
+      const onboarding = await onboardingStorage.getSnapshot(profile.id);
       set({
-        user,
+        user: profile,
+        profile,
+        accountMode: profile.isDemo ? 'demo' : 'account',
+        authInitialized: true,
         authLoading: false,
         hasSeenWelcomeOnboarding: onboarding.hasSeenWelcomeOnboarding,
         needsWelcomeOnboarding: !onboarding.hasSeenWelcomeOnboarding,
@@ -409,7 +622,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         hasCompletedGuidedTour: onboarding.hasCompletedGuidedTour,
         hasSkippedGuidedTour: onboarding.hasSkippedGuidedTour,
       });
-      await get().loadRemoteData(user.id);
+      trackStoreEvent(get(), profile.isDemo ? 'demo_mode_used' : 'user_registered', {
+        sourceScreen: 'RegisterScreen',
+      });
+      if (!profile.isDemo) {
+        trackStoreEvent(get(), 'real_account_used', { sourceScreen: 'RegisterScreen' });
+      }
+      if (!profile.isDemo) {
+        await get().loadRemoteData(profile.id);
+      }
     } catch (error) {
       set({ authLoading: false });
       throw error;
@@ -417,14 +638,67 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   signOut: async () => {
-    await signOutUser();
-    set({
-      user: null,
-      hasSeenWelcomeOnboarding: false,
-      needsWelcomeOnboarding: false,
-      shouldStartGuidedTour: false,
-      hasCompletedGuidedTour: false,
-      hasSkippedGuidedTour: false,
+    const previousState = get();
+    set({ authLoading: true });
+
+    try {
+      trackStoreEvent(previousState, 'user_logged_out', { sourceScreen: 'ProfileScreen' });
+      await signOutUser();
+      const demo = demoSessionData();
+      set({
+        user: DEMO_USER,
+        profile: DEMO_USER,
+        accountMode: 'demo',
+        authLoading: false,
+        recipes: demoRecipes,
+        likes: demo.likes,
+        cart: demo.cart,
+        orders: demo.orders,
+        recipeLists: demo.recipeLists,
+        dataError: undefined,
+        hasSeenWelcomeOnboarding: false,
+        needsWelcomeOnboarding: false,
+        shouldStartGuidedTour: false,
+        hasCompletedGuidedTour: false,
+        hasSkippedGuidedTour: false,
+      });
+      void trackEvent('demo_mode_used', {
+        userId: DEMO_USER.id,
+        userEmail: DEMO_USER.email,
+        isDemoMode: true,
+        sourceScreen: 'sign_out',
+      });
+    } catch (error) {
+      set({ authLoading: false });
+      throw error;
+    }
+  },
+
+  joinBetaProgram: async (betaCode) => {
+    const normalizedCode = normalizeBetaCode(betaCode);
+    const currentUser = get().user;
+
+    if (!currentUser) {
+      throw new Error('Beta programına katılmak için önce giriş yapmalısın.');
+    }
+
+    if (!validBetaCodes.includes(normalizedCode)) {
+      throw new Error('Davet kodu geçersiz. Lütfen tekrar dene.');
+    }
+
+    const nextUser = await saveBetaProgram(currentUser, normalizedCode);
+
+    set((state) => ({
+      user: state.user?.id === nextUser.id ? nextUser : state.user,
+      profile: state.profile?.id === nextUser.id ? { ...state.profile, ...nextUser } : nextUser,
+    }));
+
+    trackStoreEvent(get(), 'beta_joined', {
+      sourceScreen: 'ProfileScreen',
+      extraData: {
+        betaCode: normalizedCode,
+        isBetaTester: true,
+      },
     });
   },
 
@@ -488,29 +762,47 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadRemoteData: async (userId) => {
+    if (get().accountMode !== 'account') {
+      return;
+    }
+
     set({ dataLoading: true });
 
     try {
-      const [remoteRecipes, remoteLikes, remoteOrders] = await Promise.all([
-        fetchRecipes(),
-        fetchUserLikes(userId),
+      const [profile, remoteRecipes, remoteLikes, remoteCart, remoteOrders] = await Promise.all([
+        fetchUserProfile(userId),
+        fetchRemoteRecipes(),
+        fetchUserFavorites(userId),
+        fetchUserCart(userId),
         fetchUserOrders(userId),
       ]);
 
-      set((state) => ({
-        recipes: remoteRecipes.length > 0 ? remoteRecipes : state.recipes,
-        likes: Object.keys(remoteLikes).length > 0 ? remoteLikes : state.likes,
-        orders: remoteOrders.length > 0 ? remoteOrders : state.orders,
+      set({
+        profile: profile ?? get().profile,
+        user: profile ?? get().user,
+        recipes: mergeRecipes(remoteRecipes),
+        likes: remoteLikes,
+        recipeLists: {
+          ...get().recipeLists,
+          favorites: Object.keys(remoteLikes),
+        },
+        cart: remoteCart,
+        orders: remoteOrders,
         dataLoading: false,
-      }));
+        dataError: undefined,
+      });
     } catch {
-      set({ dataLoading: false });
+      set({
+        dataLoading: false,
+        dataError: 'Hesap verileri güncellenemedi. İnternet bağlantını kontrol edebilirsin.',
+      });
     }
   },
 
   toggleLike: (recipeId) => {
-    const userId = get().user?.id ?? 'demo-user';
+    const { accountMode, user } = get();
     const liked = !get().likes[recipeId];
+    const recipe = get().recipes.find((item) => item.id === recipeId);
 
     set((state) => ({
       likes: { ...state.likes, [recipeId]: liked },
@@ -527,7 +819,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }));
 
-    void saveLike(userId, recipeId, liked);
+    if (accountMode === 'account' && user) {
+      set((state) => ({
+        pendingFavoriteIds: { ...state.pendingFavoriteIds, [recipeId]: true },
+      }));
+
+      void setUserFavorite(user.id, recipeId, liked, recipe)
+        .then(() => {
+          set((state) => ({
+            pendingFavoriteIds: { ...state.pendingFavoriteIds, [recipeId]: false },
+            dataError: undefined,
+          }));
+        })
+        .catch(() => {
+          set((state) => ({
+            pendingFavoriteIds: { ...state.pendingFavoriteIds, [recipeId]: false },
+            dataError: 'Favori değişikliği kaydedilemedi. Bağlantını kontrol edip tekrar deneyebilirsin.',
+          }));
+        });
+    }
+
+    trackStoreEvent(get(), liked ? 'recipe_favorited' : 'recipe_unfavorited', {
+      recipeId,
+      recipeTitle: recipe?.title,
+      sourceScreen: 'RecipeAction',
+    });
   },
 
   setPantryText: (value) => set({ pantryText: value }),
@@ -853,11 +1169,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       };
     });
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'cart_item_added', {
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'FamilyAccount',
+      extraData: {
+        itemCount: checkedItems.length,
+        source: 'family_list',
+      },
+    });
   },
 
   addIngredientToCart: (recipe, ingredient, alternative) => {
     const item = createCartItem(recipe, ingredient, alternative);
-    const userId = get().user?.id ?? 'demo-user';
 
     set((state) => {
       const existing = state.cart.find((cartItem) => cartItem.id === item.id);
@@ -871,8 +1195,68 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       return { cart };
     });
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'cart_item_added', {
+      recipeId: item.recipeId,
+      recipeTitle: item.recipeTitle,
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'CartAction',
+      extraData: {
+        itemName: item.name,
+        itemPrice: item.price,
+      },
+    });
+  },
 
-    void saveCartItem(userId, item);
+  addSponsoredProductToCart: (product, context) => {
+    const amountMatch = product.unit.match(/\d+([.,]\d+)?/);
+    const amount = amountMatch ? Number(amountMatch[0].replace(',', '.')) : 1;
+    const item: CartItem = {
+      id: `sponsored_${product.id}_${context?.recipeId ?? 'general'}`,
+      recipeId: context?.recipeId ?? 'sponsored-product',
+      recipeTitle: context?.recipeTitle ?? product.campaignName,
+      ingredientId: product.targetIngredients[0] ?? product.category,
+      name: product.productName,
+      gram: Number.isFinite(amount) ? amount : 1,
+      unit: product.unit.replace(amountMatch?.[0] ?? '', '').trim() || 'adet',
+      price: product.price,
+      quantity: 1,
+      source: 'sponsored',
+      sourceLabel: product.sponsorLabel,
+      marketName: 'TarifAL Market',
+      sponsoredProductId: product.id,
+      brandName: product.brandName,
+      sponsorLabel: product.sponsorLabel,
+      commissionEstimate: Math.round(product.price * 0.08),
+    };
+
+    set((state) => {
+      const existing = state.cart.find((cartItem) => cartItem.id === item.id);
+      const cart = existing
+        ? state.cart.map((cartItem) =>
+            cartItem.id === item.id
+              ? { ...cartItem, quantity: cartItem.quantity + 1 }
+              : cartItem,
+          )
+        : [...state.cart, item];
+
+      return { cart };
+    });
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'sponsored_added_to_cart', {
+      recipeId: item.recipeId,
+      recipeTitle: item.recipeTitle,
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: context?.placementType ?? 'sponsored',
+      extraData: {
+        sponsoredProductId: product.id,
+        brandName: product.brandName,
+        productName: product.productName,
+        campaignName: product.campaignName,
+        placementType: context?.placementType ?? 'cart',
+        itemPrice: product.price,
+      },
+    });
   },
 
   addRestaurantMealToCart: (recipe, restaurant) => {
@@ -921,6 +1305,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const match = getRecipeMatch(recipe, parsePantryText(pantryText ?? get().pantryText));
     match.missingIngredients.forEach((ingredient) => get().addIngredientToCart(recipe, ingredient));
+    trackStoreEvent(get(), 'missing_items_added_to_cart', {
+      recipeId: recipe.id,
+      recipeTitle: recipe.title,
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'RecipeDetail',
+      extraData: {
+        missingCount: match.missingIngredients.length,
+      },
+    });
   },
 
   addRecipeToCart: (recipeId) => {
@@ -970,6 +1363,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         selectedPlanId: plans[0]?.id,
       },
     });
+    trackStoreEvent(get(), 'smart_cart_created', {
+      recipeId: plans[0]?.recipeId,
+      recipeTitle: plans[0]?.recipeTitle,
+      cartTotal: plans[0]?.missingTotal,
+      sourceScreen: 'SmartBasket',
+      extraData: {
+        planCount: plans.length,
+        servings: cleanInput.servings,
+        budgetModeId: cleanInput.budgetModeId,
+      },
+    });
 
     return plans;
   },
@@ -984,7 +1388,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addSmartBasketItemsToCart: (planId) => {
-    const { smartBasket, user } = get();
+    const { smartBasket } = get();
     const plan =
       smartBasket.plans.find((item) => item.id === (planId ?? smartBasket.selectedPlanId)) ??
       smartBasket.plans[0];
@@ -1038,9 +1442,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       };
     });
-
-    items.forEach((item) => {
-      void saveCartItem(user?.id ?? 'demo-user', item);
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'missing_items_added_to_cart', {
+      recipeId: plan.recipeId,
+      recipeTitle: plan.recipeTitle,
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'SmartBasket',
+      extraData: {
+        missingCount: items.length,
+        planId: plan.id,
+      },
     });
   },
 
@@ -1069,6 +1480,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         item.id === itemId ? { ...item, quantity: item.quantity + 1 } : item,
       ),
     }));
+    persistAccountCart(get());
+    const item = get().cart.find((cartItem) => cartItem.id === itemId);
+    trackStoreEvent(get(), 'cart_item_added', {
+      recipeId: item?.recipeId,
+      recipeTitle: item?.recipeTitle,
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'CartScreen',
+      extraData: {
+        itemName: item?.name,
+      },
+    });
   },
 
   decrementCartItem: (itemId) => {
@@ -1079,16 +1501,40 @@ export const useAppStore = create<AppState>((set, get) => ({
         )
         .filter((item) => item.quantity > 0),
     }));
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'cart_item_removed', {
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'CartScreen',
+      extraData: {
+        itemId,
+      },
+    });
   },
 
   removeCartItem: (itemId) => {
     set((state) => ({
       cart: state.cart.filter((item) => item.id !== itemId),
     }));
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'cart_item_removed', {
+      cartTotal: getCartTotal(get().cart),
+      sourceScreen: 'CartScreen',
+      extraData: {
+        itemId,
+      },
+    });
   },
 
   clearCart: () => {
     set({ cart: [] });
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'cart_item_removed', {
+      cartTotal: 0,
+      sourceScreen: 'CartScreen',
+      extraData: {
+        action: 'clear_cart',
+      },
+    });
   },
 
   incrementRestaurantItem: (itemId) => {
@@ -1152,48 +1598,104 @@ export const useAppStore = create<AppState>((set, get) => ({
     const deliveryFee = options?.deliveryFee ?? 0;
     const serviceFee = options?.serviceFee ?? 0;
     const total = subtotal + deliveryFee + serviceFee;
+    const timestamp = Date.now();
+    const orderNumber = `ORD-${String(timestamp).slice(-6)}`;
+    const relatedRecipes = Array.from(
+      cart.reduce((map, item) => {
+        if (item.recipeId && item.recipeId !== 'family-list') {
+          map.set(item.recipeId, {
+            recipeId: item.recipeId,
+            recipeTitle: item.recipeTitle,
+          });
+        }
+
+        return map;
+      }, new Map<string, { recipeId: string; recipeTitle: string }>()),
+    ).map(([, recipe]) => recipe);
 
     const order: Order = {
-      id: `order-${Date.now()}`,
+      id: `order-${timestamp}`,
+      orderId: `order-${timestamp}`,
+      orderNumber,
       userId: user?.id ?? 'demo-user',
+      userEmail: user?.email ?? null,
+      userName: user?.name ?? null,
       items: cart,
+      relatedRecipes,
       address: address.trim(),
       total,
       subtotal,
       deliveryFee,
+      discount: 0,
       serviceFee,
       marketName: options?.marketName,
       deliveryEstimate: options?.deliveryEstimate,
       deliverySlot: options?.deliverySlot,
       paymentMethod: options?.paymentMethod,
+      paymentStatus: 'demo',
+      isPaid: false,
+      isDemoOrder: true,
+      userNote: 'Akıllı sipariş MVP demosu.',
       commissionEstimate: options?.commissionEstimate,
       averageBasket: options?.averageBasket,
       conversionRate: options?.conversionRate,
       createdAt: new Date().toISOString(),
-      status: 'mock-confirmed',
+      updatedAt: new Date().toISOString(),
+      completedAt: null,
+      status: 'new',
     };
 
-    await saveOrder(order);
+    if (get().accountMode === 'account') {
+      await saveOrder(order);
+    }
     set((state) => ({ orders: [order, ...state.orders], cart: [] }));
+    persistAccountCart(get());
+    trackStoreEvent(get(), 'order_created', {
+      cartTotal: order.total,
+      sourceScreen: 'MarketCheckout',
+      extraData: {
+        orderId: order.id,
+        orderNumber,
+        marketName: order.marketName,
+        isDemoOrder: true,
+      },
+    });
+    trackStoreEvent(get(), 'checkout_demo_completed', {
+      cartTotal: order.total,
+      sourceScreen: 'MarketCheckout',
+      extraData: {
+        orderId: order.id,
+        marketName: order.marketName,
+      },
+    });
 
     return order;
   },
 
-  addRecipe: (payload) => {
+  addRecipe: async (payload) => {
+    const cleanTitle = payload.title.trim();
+    const cleanDescription = payload.description.trim();
+    const cleanIngredients = payload.ingredients.filter((ingredient) => ingredient.name.trim());
+    const cleanSteps = payload.steps.filter((step) => step.text.trim());
+
+    if (!cleanTitle || !cleanDescription || cleanIngredients.length === 0 || cleanSteps.length === 0) {
+      throw new Error('Tarif başlığı, açıklama, en az bir malzeme ve bir hazırlık adımı gerekli.');
+    }
+
     const user = get().user;
     const estimatedPrice = payload.ingredients.reduce((sum, ingredient) => sum + ingredient.price, 0);
     const recipe: Recipe = {
       id: `recipe-${Date.now()}`,
-      title: payload.title,
-      description: payload.description,
+      title: cleanTitle,
+      description: cleanDescription,
       category: payload.category,
       imageUrl:
         payload.imageUrl ||
         'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&auto=format&fit=crop',
-      ingredients: payload.ingredients,
-      requiredIngredients: payload.ingredients,
+      ingredients: cleanIngredients,
+      requiredIngredients: cleanIngredients,
       optionalIngredients: [],
-      steps: payload.steps,
+      steps: cleanSteps,
       likes: 0,
       prepTime: payload.prepTime,
       servings: payload.servings,
@@ -1205,6 +1707,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdBy: user?.id ?? 'demo-user',
       createdByName: user?.name ?? 'TarifAL',
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isDemo: get().accountMode !== 'account',
     };
     const socialPost: SocialRecipePost = {
       id: `post-${recipe.id}`,
@@ -1239,6 +1743,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       tip: 'Bu tarif topluluk tarafindan paylasildi; marka ve sepet secenekleri demo modunda gosterilir.',
     };
 
+    if (get().accountMode === 'account') {
+      await saveUserRecipe(recipe);
+    }
+
     set((state) => ({
       recipes: [recipe, ...state.recipes],
       socialPosts: [socialPost, ...state.socialPosts],
@@ -1255,7 +1763,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       },
     }));
-    void saveRecipe(recipe);
+    trackStoreEvent(get(), 'recipe_shared', {
+      recipeId: recipe.id,
+      recipeTitle: recipe.title,
+      cartTotal: estimatedPrice,
+      sourceScreen: 'AddRecipe',
+      extraData: {
+        category: recipe.category,
+        ingredientCount: recipe.ingredients.length,
+      },
+    });
 
     return recipe;
   },
@@ -1291,7 +1808,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 }));
 
-useAppStore.subscribe((state) =>
+useAppStore.subscribe((state) => {
+  if (state.accountMode !== 'demo') {
+    return;
+  }
+
   writePersistedDemoState({
     likes: state.likes,
     cart: state.cart,
@@ -1314,5 +1835,5 @@ useAppStore.subscribe((state) =>
     collectionSaves: state.collectionSaves,
     pantryText: state.pantryText,
     familyAccount: state.familyAccount,
-  }),
-);
+  });
+});

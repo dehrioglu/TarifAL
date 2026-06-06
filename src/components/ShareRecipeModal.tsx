@@ -11,12 +11,12 @@ type ShareRecipeModalProps = {
 };
 
 const shareOptions = [
-  { label: 'TarifAL içinde paylaş', icon: 'people-outline', message: 'TarifAL akışında demo paylaşım hazırlandı.' },
+  { label: 'TarifAL içinde paylaş', icon: 'people-outline', message: 'TarifAL akışında paylaşım hazırlandı.' },
   { label: 'Koleksiyona ekle', icon: 'albums-outline', message: 'Tarif koleksiyonuna eklendi.' },
   { label: 'Linki kopyala', icon: 'link-outline', message: 'Paylaşım bağlantısı kopyalandı.' },
-  { label: "WhatsApp'ta paylaş", icon: 'logo-whatsapp', message: 'WhatsApp paylaşımı demo modunda simüle edildi.' },
-  { label: 'Instagram hikayesi', icon: 'logo-instagram', message: 'Instagram hikayesi demo modunda hazırlandı.' },
-  { label: 'Dışa aktar', icon: 'download-outline', message: 'Tarif dışa aktarma demo modunda simüle edildi.' },
+  { label: "WhatsApp'ta paylaş", icon: 'logo-whatsapp', message: 'WhatsApp paylaşım bağlantısı hazırlandı.' },
+  { label: 'Instagram hikayesi', icon: 'logo-instagram', message: 'Instagram hikayesi için paylaşım görseli hazırlandı.' },
+  { label: 'Dışa aktar', icon: 'download-outline', message: 'Tarif dışa aktarma için hazırlandı.' },
 ] as const;
 
 export function ShareRecipeModal({ visible, title, onClose, onAction }: ShareRecipeModalProps) {

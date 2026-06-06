@@ -16,6 +16,7 @@ import { smartBasketQuickIngredients } from '../data/demoSmartBasket';
 import { theme } from '../constants/theme';
 import { useFeedback } from '../feedback/FeedbackProvider';
 import { useAppStore } from '../store/useAppStore';
+import { isFounderUser } from '../utils/profileIdentity';
 import { parsePantryText } from '../utils/recipeMatching';
 
 type SmartBasketWizardProps = {
@@ -83,9 +84,9 @@ const stepMeta: Record<Exclude<WizardStep, 'success'>, { step: number; eyebrow: 
   },
   market: {
     step: 8,
-    eyebrow: '7. Demo market',
+    eyebrow: '7. Market sepeti',
     title: 'Tarif artık sepete dönüşüyor',
-    description: 'Bu ekran yatırımcıya TarifAL’in ticari modelini net gösterir.',
+    description: 'Eksik ürünler market sepetine dönüşür; bu aşamada ödeme alınmaz.',
   },
 };
 
@@ -100,6 +101,8 @@ export function SmartBasketWizard({
   onOpenRecipe,
 }: SmartBasketWizardProps) {
   const pantryText = useAppStore((store) => store.pantryText);
+  const user = useAppStore((store) => store.user);
+  const profile = useAppStore((store) => store.profile);
   const smartBasket = useAppStore((store) => store.smartBasket);
   const createSmartBasketPlan = useAppStore((store) => store.createSmartBasketPlan);
   const selectSmartBasketPlan = useAppStore((store) => store.selectSmartBasketPlan);
@@ -119,6 +122,7 @@ export function SmartBasketWizard({
   const [ingredients, setIngredients] = useState(initialIngredients);
   const [servings, setServings] = useState(2);
   const [budgetModeId, setBudgetModeId] = useState('under-250');
+  const showTestingTools = Boolean(isFounderUser(user) || profile?.isBetaTester || user?.isBetaTester);
 
   const selectedPlan = useMemo(
     () =>
@@ -194,9 +198,9 @@ export function SmartBasketWizard({
       </View>
       <Text style={styles.introTitle}>Kullanıcı niyetini market sepetine dönüştür</Text>
       <Text style={styles.introText}>
-        TarifAL evdeki malzemeyi okur, uygun tarifleri sıralar, eksikleri bulur ve tek tıkla Demo Market sepeti oluşturur.
+        TarifAL evdeki malzemeyi okur, uygun tarifleri sıralar, eksikleri bulur ve tek tıkla market sepeti oluşturur.
       </Text>
-      <InvestorConversionStrip compact />
+      {showTestingTools ? <InvestorConversionStrip compact /> : null}
       <TouchableOpacity onPress={() => setStep('ingredients')} activeOpacity={0.88} style={styles.primaryButton}>
         <Ionicons name="sparkles" size={17} color="#FFFFFF" />
         <Text style={styles.primaryText}>Akıllı Sepet Oluştur</Text>

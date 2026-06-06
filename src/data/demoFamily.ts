@@ -1,7 +1,7 @@
 import { FamilyAccountState } from '../types';
 
 export const demoFamilyAccount: FamilyAccountState = {
-  homeName: 'Saran Evi',
+  homeName: 'Ev Listem',
   inviteCode: 'TARIF-214',
   members: [
     {

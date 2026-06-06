@@ -114,7 +114,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
     addMissingIngredientsToCart(recipeId);
     showDemoModal({
       title: 'Sef tarifinden sepete',
-      message: `${post?.title ?? 'Tarif'} icin eksik malzemeler akilli sepete eklendi. Bu sosyal-ticari donusum demo modunda simule edildi.`,
+      message: `${post?.title ?? 'Tarif'} için eksik malzemeler akıllı sepete eklendi. Bu aşamada ödeme alınmaz; sipariş akışı test modunda tamamlanır.`,
       primaryLabel: 'Sepete Git',
       secondaryLabel: 'Akilli Siparise Gec',
       onPrimary: () => navigation.navigate('MainTabs', { screen: 'Cart' }),
@@ -170,7 +170,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
             onAddMarket={() => addMarketBasket(post.id, post.recipeId)}
             onOrderReadyMeal={() => navigation.navigate('RecipeDetail', { recipeId: post.recipeId, purchaseMode: 'restaurant' })}
             onComment={() => openRecipe(post.id, post.recipeId)}
-            onShare={() => showToast('Profil tarifi demo olarak paylasildi.', 'info')}
+            onShare={() => showToast('Paylaşım bağlantısı hazırlandı.', 'info')}
           />
         ))
       )}
@@ -230,7 +230,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
               }}
             />
             <TouchableOpacity
-              onPress={() => showToast('Mesajlasma MVP sonrasi aktif olacak.', 'info')}
+              onPress={() => showToast('Mesajlaşma beta sürecinden sonra aktif olacak.', 'info')}
               activeOpacity={0.86}
               style={styles.messageButton}
             >
@@ -264,7 +264,7 @@ export function SocialProfileScreen({ navigation, route }: Props) {
         <View style={styles.profileSection}>
           <View style={styles.sectionHeaderInline}>
             <Text style={styles.sectionTitle}>Öne Çıkan Tarifler</Text>
-            <Text style={styles.sectionHint}>Yatay demo</Text>
+            <Text style={styles.sectionHint}>Öne çıkanlar</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightRow}>
             {highlightedPosts.map((post) => (
@@ -326,8 +326,8 @@ export function SocialProfileScreen({ navigation, route }: Props) {
               ))}
             </View>
             <Text style={styles.aboutText}>
-              Bu profil demo sosyal agini canli gostermek icin mock veriyle calisir. Ileride takip,
-              mesaj ve tarif yayinlama aksiyonlari Firebase veya gercek API ile baglanabilir.
+              Bu profil TarifAL topluluğundaki tarif, takip ve koleksiyon deneyimini gösterir.
+              Mesajlaşma ve gelişmiş yayın akışı beta sürecinde genişletilecektir.
             </Text>
             <Text style={styles.sectionTitle}>Son yorumlar</Text>
             <CommentList comments={visibleComments} usersById={usersById} onToggleLike={toggleCommentLike} />

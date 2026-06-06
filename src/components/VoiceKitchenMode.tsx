@@ -13,10 +13,10 @@ type VoiceKitchenModeProps = {
 
 export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeProps) {
   const firstStep = recipe.steps[0]?.text ?? 'Tarif adımlarını takip etmeye hazırsın.';
-  const [demoFeedback, setDemoFeedback] = useState('');
+  const [voiceFeedback, setVoiceFeedback] = useState('');
 
   const listenDemoCommand = () => {
-    setDemoFeedback('Demo komut algılandı: “Sonraki adım”. Gerçek sesli komut MVP sonrası bağlanacak.');
+    setVoiceFeedback('Komut algılandı: “Sonraki adım”. Sesli mutfak akışı beta sürecinde genişletilecek.');
   };
 
   return (
@@ -40,7 +40,7 @@ export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeP
 
         <View style={styles.demoBadge}>
           <Ionicons name="mic-outline" size={17} color={theme.colors.primary} />
-          <Text style={styles.demoText}>Sesli komut demo modu</Text>
+          <Text style={styles.demoText}>Sesli komut önizlemesi</Text>
         </View>
 
         <View style={styles.stepCard}>
@@ -57,17 +57,17 @@ export function VoiceKitchenMode({ recipe, visible, onClose }: VoiceKitchenModeP
           ))}
         </View>
 
-        {demoFeedback ? <Text style={styles.feedback}>{demoFeedback}</Text> : null}
+        {voiceFeedback ? <Text style={styles.feedback}>{voiceFeedback}</Text> : null}
 
         <TouchableOpacity
           onPress={listenDemoCommand}
           activeOpacity={0.86}
           accessibilityRole="button"
-          accessibilityLabel="Demo sesli komutu dinle"
+          accessibilityLabel="Sesli komutu dinle"
           style={styles.primaryButton}
         >
           <Ionicons name="mic" size={18} color="#FFFFFF" />
-          <Text style={styles.primaryText}>Demo Komutu Dinle</Text>
+          <Text style={styles.primaryText}>Komutu Dinle</Text>
         </TouchableOpacity>
       </View>
     </Modal>

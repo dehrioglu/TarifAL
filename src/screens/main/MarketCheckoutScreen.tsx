@@ -1,11 +1,13 @@
-import { ComponentProps, useMemo, useState } from 'react';
+import { ComponentProps, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
 import { EmptyState } from '../../components/EmptyState';
+import { FeedbackPromptButton } from '../../components/FeedbackPromptButton';
 import { InvestorConversionStrip } from '../../components/InvestorConversionStrip';
+import { MiniSurveyModal } from '../../components/MiniSurveyModal';
 import { Screen } from '../../components/Screen';
 import { theme } from '../../constants/theme';
 import {
@@ -18,8 +20,10 @@ import {
 } from '../../data/demoCheckout';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { trackEvent } from '../../services/analyticsService';
 import { useAppStore } from '../../store/useAppStore';
 import { CartItem, Order } from '../../types';
+import { isFounderUser } from '../../utils/profileIdentity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MarketCheckout'>;
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -31,14 +35,20 @@ const getRecipeCount = (items: CartItem[]) =>
 
 export function MarketCheckoutScreen({ navigation, route }: Props) {
   const cart = useAppStore((store) => store.cart);
+  const user = useAppStore((store) => store.user);
+  const profile = useAppStore((store) => store.profile);
+  const accountMode = useAppStore((store) => store.accountMode);
   const placeOrder = useAppStore((store) => store.placeOrder);
   const { showToast, showDemoModal } = useFeedback();
-  const [address, setAddress] = useState('Saran Holding');
+  const [address, setAddress] = useState('Ev adresi');
   const [selectedMarketId, setSelectedMarketId] = useState(route.params?.marketId ?? demoMarketOptions[0].id);
   const [selectedSlotId, setSelectedSlotId] = useState(demoDeliverySlots[0].id);
   const [selectedPaymentId, setSelectedPaymentId] = useState(demoPaymentMethods[0].id);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+  const [checkoutSurveyTrigger, setCheckoutSurveyTrigger] = useState(0);
+  const isFounderAccount = isFounderUser(user);
+  const showTestingTools = Boolean(isFounderAccount || profile?.isBetaTester || user?.isBetaTester);
 
   const checkoutItems = confirmedOrder?.items ?? cart;
   const selectedMarket =
@@ -58,13 +68,27 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
   const grandTotal = subtotal + selectedMarket.deliveryFee + selectedMarket.serviceFee;
   const firstRecipeId = confirmedOrder?.items.find((item) => item.recipeId !== 'family-list')?.recipeId;
 
+  useEffect(() => {
+    void trackEvent('checkout_demo_started', {
+      userId: user?.id,
+      userEmail: user?.email,
+      cartTotal: grandTotal,
+      sourceScreen: 'MarketCheckout',
+      isDemoMode: accountMode === 'demo',
+      extraData: {
+        itemCount,
+        selectedMarket: selectedMarket.name,
+      },
+    });
+  }, []);
+
   const handleConfirm = async () => {
     if (cart.length === 0) {
       return;
     }
 
     if (!address.trim()) {
-      showToast('Demo siparişi oluşturmak için teslimat adresi gir.', 'warning');
+      showToast('Sipariş akışını tamamlamak için teslimat adresi gir.', 'warning');
       return;
     }
 
@@ -86,12 +110,13 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
         marketPriceMultiplier: selectedMarket.priceMultiplier,
       });
       setConfirmedOrder(order);
-      showToast('Demo sipariş onaylandı. Sipariş takip ekranı hazır.', 'info');
+      setCheckoutSurveyTrigger((value) => value + 1);
+      showToast('Sipariş akışı test modunda tamamlandı. Takip ekranı hazır.', 'info');
       showDemoModal({
-        title: 'Akıllı siparişin hazır',
+        title: 'Sipariş simülasyonu hazır',
         message:
-          'Demo market siparişin başarıyla simüle edildi. Gerçek ödeme alınmadı; takip akışından ürünlerin mutfağına gelişini inceleyebilirsin.',
-        primaryLabel: 'Sipariş Takibini Gör',
+          `#${order.orderNumber ?? order.id} numaralı sipariş akışı hazırlandı. Bu aşamada ödeme alınmadı; takip ekranından mutfağına geliş akışını inceleyebilirsin.`,
+        primaryLabel: 'Takibi Gör',
       });
     } catch (error) {
       showDemoModal({
@@ -138,8 +163,9 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
             <Ionicons name="checkmark-circle" size={34} color="#FFFFFF" />
           </View>
           <Text style={styles.successTitle}>Sipariş akışın hazır</Text>
+          <Text style={styles.orderNumberText}>#{confirmedOrder.orderNumber ?? confirmedOrder.id}</Text>
           <Text style={styles.successText}>
-            Eksik ürünler market sepetine dönüştürüldü. Bu MVP demosunda ödeme simüle edildi.
+            Eksik ürünler market sepetine dönüştürüldü. Bu aşamada ödeme alınmadı.
           </Text>
           <View style={styles.successStats}>
             <View style={styles.successStat}>
@@ -157,6 +183,12 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
           </View>
         </View>
 
+        {showTestingTools ? (
+          <View style={styles.feedbackWrap}>
+            <FeedbackPromptButton screenName="MarketCheckout" compact />
+          </View>
+        ) : null}
+
         <View style={styles.trackingCard}>
           <View style={styles.sectionHeader}>
             <View>
@@ -164,7 +196,7 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
               <Text style={styles.sectionSubtitle}>Tariften alışverişe dönüşüm net şekilde görünsün.</Text>
             </View>
             <View style={styles.demoBadge}>
-              <Text style={styles.demoBadgeText}>Demo</Text>
+              <Text style={styles.demoBadgeText}>Test modu</Text>
             </View>
           </View>
           {demoCheckoutTrackingSteps.map((step, index) => {
@@ -191,14 +223,16 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
           })}
         </View>
 
-        <View style={styles.investorCard}>
-          <Text style={styles.sectionTitle}>Yatırımcı görünümü</Text>
-          <View style={styles.metricGrid}>
-            <Metric label="Tahmini komisyon" value={formatPrice(commissionEstimate)} />
-            <Metric label="Sepete dönüşüm" value={`%${demoCheckoutMetrics.conversionRate}`} />
-            <Metric label="Tekrar potansiyeli" value={`%${demoCheckoutMetrics.repeatPotential}`} />
+        {isFounderAccount ? (
+          <View style={styles.investorCard}>
+            <Text style={styles.sectionTitle}>Kurucu görünümü</Text>
+            <View style={styles.metricGrid}>
+              <Metric label="Tahmini komisyon" value={formatPrice(commissionEstimate)} />
+              <Metric label="Sepete dönüşüm" value={`%${demoCheckoutMetrics.conversionRate}`} />
+              <Metric label="Tekrar potansiyeli" value={`%${demoCheckoutMetrics.repeatPotential}`} />
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <View style={styles.successActions}>
           <AppButton
@@ -207,8 +241,8 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
             variant="soft"
             onPress={() =>
               showDemoModal({
-                title: 'Demo sipariş detayları',
-                message: `${confirmedOrder.items.length} ürün ${confirmedOrder.marketName ?? selectedMarket.name} ile eşleşti. Bu işlem gerçek markete iletilmedi; yatırımcı demosu için simüle edildi.`,
+                title: 'Sipariş detayları',
+                message: `#${confirmedOrder.orderNumber ?? confirmedOrder.id} numaralı siparişte ${confirmedOrder.items.length} ürün ${confirmedOrder.marketName ?? selectedMarket.name} ile eşleşti. Bu işlem gerçek markete iletilmedi; test modunda güvenli şekilde tamamlandı.`,
                 primaryLabel: 'Tamam',
               })
             }
@@ -227,6 +261,16 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
             onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
           />
         </View>
+        {showTestingTools ? (
+          <MiniSurveyModal
+            surveyKey="checkout-market-intent"
+            screenName="MarketCheckout"
+            question="Bu akışı gerçek market siparişinde kullanır mıydın?"
+            answers={['Evet', 'Belki', 'Hayır']}
+            relatedEvent="checkout_demo_completed"
+            triggerCount={checkoutSurveyTrigger}
+          />
+        ) : null}
       </Screen>
     );
   }
@@ -247,14 +291,20 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
         <View style={styles.backGhost} />
       </View>
 
+      {showTestingTools ? (
+        <View style={styles.feedbackWrap}>
+          <FeedbackPromptButton screenName="MarketCheckout" compact />
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <View style={styles.heroBadge}>
           <Ionicons name="sparkles" size={14} color={theme.colors.primary} />
-          <Text style={styles.heroBadgeText}>TarifAL ticari demo akışı</Text>
+          <Text style={styles.heroBadgeText}>TarifAL Akıllı Sipariş</Text>
         </View>
         <Text style={styles.heroTitle}>Tarifi market siparişine dönüştür</Text>
         <Text style={styles.heroText}>
-          Sepetteki eksikler marketle eşleşir, teslimat zamanı seçilir ve mock ödeme ile sipariş takip akışı başlar.
+          Sepetteki eksikler marketle eşleşir, teslimat zamanı seçilir ve ödeme alınmadan takip akışı hazırlanır.
         </Text>
         <View style={styles.heroStats}>
           <Metric label="Ürün" value={`${itemCount}`} />
@@ -266,14 +316,14 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
       <View style={styles.stepPills}>
         <StepPill active label="1 Market" />
         <StepPill active label="2 Teslimat" />
-        <StepPill active label="3 Demo ödeme" />
+        <StepPill active label="3 Güvenli onay" />
       </View>
 
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Market seçimi</Text>
-            <Text style={styles.sectionSubtitle}>Demo market gelir modeli burada görünür.</Text>
+            <Text style={styles.sectionSubtitle}>Fiyat, teslimat ve avantajları karşılaştır.</Text>
           </View>
           <Ionicons name="storefront-outline" size={22} color={theme.colors.primary} />
         </View>
@@ -343,7 +393,7 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Akıllı alternatifler</Text>
-            <Text style={styles.sectionSubtitle}>Sepet optimizasyonu yatırımcıya ticari zekayı gösterir.</Text>
+            <Text style={styles.sectionSubtitle}>Daha uygun fiyat ve teslimat seçeneklerini gör.</Text>
           </View>
           <Ionicons name="options-outline" size={22} color={theme.colors.primary} />
         </View>
@@ -365,7 +415,7 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Teslimat ve ödeme</Text>
-            <Text style={styles.sectionSubtitle}>Gerçek ödeme yok; MVP demosu güvenli şekilde simüle edilir.</Text>
+            <Text style={styles.sectionSubtitle}>Bu aşamada ödeme alınmaz; akış test modunda tamamlanır.</Text>
           </View>
           <Ionicons name="card-outline" size={22} color={theme.colors.primary} />
         </View>
@@ -419,11 +469,13 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
         <SummaryRow label="Hizmet bedeli" value={`₺${selectedMarket.serviceFee.toFixed(2)}`} />
         <View style={styles.summaryDivider} />
         <SummaryRow label="Genel toplam" value={`₺${grandTotal.toFixed(2)}`} strong />
-        <View style={styles.metricGrid}>
-          <Metric label="Tahmini komisyon" value={formatPrice(commissionEstimate)} />
-          <Metric label="Sepete dönüşüm" value={`%${demoCheckoutMetrics.conversionRate}`} />
-          <Metric label="Ort. sepet" value={formatPrice(demoCheckoutMetrics.averageBasket)} />
-        </View>
+        {isFounderAccount ? (
+          <View style={styles.metricGrid}>
+            <Metric label="Tahmini komisyon" value={formatPrice(commissionEstimate)} />
+            <Metric label="Sepete dönüşüm" value={`%${demoCheckoutMetrics.conversionRate}`} />
+            <Metric label="Ort. sepet" value={formatPrice(demoCheckoutMetrics.averageBasket)} />
+          </View>
+        ) : null}
         <AppButton
           title="Ürünleri Düzenle"
           icon="cart-outline"
@@ -431,15 +483,25 @@ export function MarketCheckoutScreen({ navigation, route }: Props) {
           onPress={() => navigation.navigate('MainTabs', { screen: 'Cart' })}
         />
         <AppButton
-          title={submitting ? 'Demo sipariş hazırlanıyor...' : 'Demo Siparişi Onayla'}
+          title={submitting ? 'Sipariş akışı hazırlanıyor...' : 'Sipariş Akışını Onayla'}
           icon="bag-check"
           loading={submitting}
           onPress={handleConfirm}
         />
-        <Text style={styles.mockText}>* Bu MVP demosunda gerçek ödeme alınmaz.</Text>
+        <Text style={styles.mockText}>* Bu aşamada ödeme alınmaz; market entegrasyonu beta sürecindedir.</Text>
       </View>
 
-      <InvestorConversionStrip compact />
+      {isFounderAccount ? <InvestorConversionStrip compact /> : null}
+      {showTestingTools ? (
+        <MiniSurveyModal
+          surveyKey="checkout-market-intent"
+          screenName="MarketCheckout"
+          question="Bu akışı gerçek market siparişinde kullanır mıydın?"
+          answers={['Evet', 'Belki', 'Hayır']}
+          relatedEvent="checkout_demo_completed"
+          triggerCount={checkoutSurveyTrigger}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -489,6 +551,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  feedbackWrap: {
+    marginTop: -4,
+    marginBottom: 12,
   },
   backButton: {
     width: 42,
@@ -887,6 +953,16 @@ const styles = StyleSheet.create({
   successTitle: {
     color: '#FFFFFF',
     fontSize: 27,
+    fontWeight: '900',
+  },
+  orderNumberText: {
+    alignSelf: 'flex-start',
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '900',
   },
   successText: {

@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 
 import { AppButton } from '../../components/AppButton';
 import { CategoryPill } from '../../components/CategoryPill';
+import { FeedbackPromptButton } from '../../components/FeedbackPromptButton';
 import { InputField } from '../../components/InputField';
+import { MiniSurveyModal } from '../../components/MiniSurveyModal';
 import { Screen } from '../../components/Screen';
 import { recipeCategories } from '../../constants/categories';
 import { theme } from '../../constants/theme';
 import { useFeedback } from '../../feedback/FeedbackProvider';
-import { uploadRecipeImage } from '../../services/storageService';
+import { IMAGE_UPLOAD_DISABLED_MESSAGE, uploadRecipeImage } from '../../services/storageService';
 import { useAppStore } from '../../store/useAppStore';
 import { Difficulty, Ingredient, RecipeCategory, RecipeStep } from '../../types';
 
@@ -32,6 +33,7 @@ const emptyStep = (): RecipeStep => ({
 export function AddRecipeScreen() {
   const navigation = useNavigation<any>();
   const user = useAppStore((store) => store.user);
+  const accountMode = useAppStore((store) => store.accountMode);
   const addRecipe = useAppStore((store) => store.addRecipe);
   const [imageUri, setImageUri] = useState<string | undefined>();
   const [aiPrompt, setAiPrompt] = useState('');
@@ -48,6 +50,7 @@ export function AddRecipeScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([emptyIngredient()]);
   const [steps, setSteps] = useState<RecipeStep[]>([emptyStep()]);
   const [submitting, setSubmitting] = useState(false);
+  const [shareSurveyTrigger, setShareSurveyTrigger] = useState(0);
   const { showToast, showDemoModal, showComingSoon } = useFeedback();
 
   const canSubmit = useMemo(
@@ -60,25 +63,13 @@ export function AddRecipeScreen() {
       steps.some((item) => item.text.trim()),
     [description, ingredients, prepTime, servings, steps, title],
   );
+  const imagePreviewUri = useMemo(() => {
+    const cleanUri = imageUri?.trim();
+    return cleanUri && /^https?:\/\//i.test(cleanUri) ? cleanUri : undefined;
+  }, [imageUri]);
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      showToast('Galeriye erişim izni olmadan görsel seçilemez.', 'warning');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
-    });
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    }
+    showToast(IMAGE_UPLOAD_DISABLED_MESSAGE, 'info');
   };
 
   const updateIngredient = (index: number, field: keyof Ingredient, value: string) => {
@@ -131,8 +122,10 @@ export function AddRecipeScreen() {
     try {
       const wasMarketReady = marketReady;
       const wasRestaurantReady = restaurantReady;
-      const uploadedImage = imageUri ? await uploadRecipeImage(imageUri, user?.id ?? 'demo-user') : undefined;
-      const recipe = addRecipe({
+      const uploadedImage = imageUri
+        ? await uploadRecipeImage(imageUri, user?.id ?? 'demo-user', accountMode === 'demo')
+        : undefined;
+      const recipe = await addRecipe({
         title: title.trim(),
         description: description.trim(),
         category,
@@ -156,9 +149,10 @@ export function AddRecipeScreen() {
       });
 
       resetForm();
+      setShareSurveyTrigger((value) => value + 1);
       showDemoModal({
         title: 'Tarif paylaşıldı',
-        message: `${recipe.title} topluluk akışına eklendi. ${wasMarketReady ? 'Market sepetine uygun' : 'Evde yap'} ${wasRestaurantReady ? 've hazır yemek siparişine uygun' : ''} olarak demo modunda kaydedildi.`,
+        message: `${recipe.title} topluluk akışına eklendi. ${wasMarketReady ? 'Market sepetine uygun' : 'Evde yap'} ${wasRestaurantReady ? 've hazır yemek siparişine uygun' : ''} olarak ${accountMode === 'account' ? 'hesabına kaydedildi' : 'bu oturumda saklandı'}.`,
         primaryLabel: 'Keşfet Akışına Git',
         secondaryLabel: 'Ana Sayfa',
         onPrimary: () => navigation.navigate('Explore'),
@@ -174,8 +168,8 @@ export function AddRecipeScreen() {
   const showPlaceholder = (type: 'image' | 'video') => {
     showComingSoon(
       type === 'image'
-        ? 'AI görsel üretimi MVP sonrası gerçek üretim servisiyle aktif edilecek. Bu demo akışında yer tutucu olarak gösteriliyor.'
-        : 'AI video üretimi MVP sonrası gerçek üretim servisiyle aktif edilecek. Bu demo akışında yer tutucu olarak gösteriliyor.',
+        ? 'AI görsel üretimi beta sürecinden sonra aktif edilecek. Şimdilik görsel alanı yer tutucu olarak hazırlanır.'
+        : 'AI video üretimi beta sürecinden sonra aktif edilecek. Şimdilik video alanı yer tutucu olarak hazırlanır.',
     );
   };
 
@@ -183,10 +177,13 @@ export function AddRecipeScreen() {
     <Screen scroll contentStyle={styles.content}>
       <Text style={styles.title}>Tarif Paylaş</Text>
       <Text style={styles.subtitle}>Yemeğini topluluğa, sepete ve sipariş akışına hazırla</Text>
+      <View style={styles.feedbackWrap}>
+        <FeedbackPromptButton screenName="AddRecipe" compact />
+      </View>
 
       <TouchableOpacity activeOpacity={0.86} onPress={pickImage} style={styles.uploadBox}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.previewImage} />
+        {imagePreviewUri ? (
+          <Image source={{ uri: imagePreviewUri }} style={styles.previewImage} />
         ) : (
           <View style={styles.uploadContent}>
             <Ionicons name="image-outline" size={45} color={theme.colors.primary} />
@@ -197,8 +194,8 @@ export function AddRecipeScreen() {
 
       <View style={styles.actionRow}>
         <TouchableOpacity activeOpacity={0.86} onPress={pickImage} style={styles.softButton}>
-          <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.primary} />
-          <Text style={styles.softButtonText}>Galeriden</Text>
+          <Ionicons name="link-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.softButtonText}>URL Kullan</Text>
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.86} onPress={() => showPlaceholder('image')} style={styles.softButton}>
           <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
@@ -208,6 +205,18 @@ export function AddRecipeScreen() {
           <Ionicons name="videocam-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.softButtonText}>AI Video</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Görsel bağlantısı</Text>
+        <InputField
+          value={imageUri ?? ''}
+          onChangeText={(value) => setImageUri(value.trim() || undefined)}
+          placeholder="https://.../tarif-gorseli.jpg"
+        />
+        <Text style={styles.helperText}>
+          Firebase Storage bu sürümde kapalı. Bağlantı ekleyebilir veya varsayılan görselle devam edebilirsin.
+        </Text>
       </View>
 
       <View style={styles.fieldGroup}>
@@ -308,7 +317,7 @@ export function AddRecipeScreen() {
         <View style={styles.switchRow}>
           <View style={styles.switchCopy}>
             <Text style={styles.switchTitle}>Hazır yemek siparişine uygun</Text>
-            <Text style={styles.switchText}>Restoran seçeneği için demo etiketi ekle.</Text>
+            <Text style={styles.switchText}>Restoran seçeneği uygunluğunu işaretle.</Text>
           </View>
           <Switch
             value={restaurantReady}
@@ -389,6 +398,14 @@ export function AddRecipeScreen() {
           Paylaşmak için başlık, açıklama, en az bir malzeme ve bir hazırlık adımı eklemelisin.
         </Text>
       ) : null}
+      <MiniSurveyModal
+        surveyKey="recipe-share-completed"
+        screenName="AddRecipe"
+        question="Tarif paylaşma süreci kolay mıydı?"
+        answers={['Evet', 'Kısmen', 'Hayır']}
+        relatedEvent="recipe_shared"
+        triggerCount={shareSurveyTrigger}
+      />
     </Screen>
   );
 }
@@ -407,6 +424,9 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 13,
     fontWeight: '600',
+  },
+  feedbackWrap: {
+    marginTop: 14,
   },
   uploadBox: {
     height: 178,
@@ -460,6 +480,12 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 13,
     fontWeight: '900',
+  },
+  helperText: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   textArea: {
     minHeight: 74,

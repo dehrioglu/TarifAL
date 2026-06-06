@@ -6,38 +6,52 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
 import { CartItemCard } from '../../components/CartItemCard';
+import { DataSyncBanner } from '../../components/DataSyncBanner';
 import { DualBasketTabs } from '../../components/DualBasketTabs';
 import { EmptyState } from '../../components/EmptyState';
+import { FeedbackPromptButton } from '../../components/FeedbackPromptButton';
 import { InvestorConversionStrip } from '../../components/InvestorConversionStrip';
 import { PriceBreakdownCard } from '../../components/PriceBreakdownCard';
 import { Screen } from '../../components/Screen';
+import { SponsoredProductCard } from '../../components/SponsoredProductCard';
 import { theme } from '../../constants/theme';
-import { commerceMarketDemo } from '../../data/demoCommerce';
 import { demoMarketOptions } from '../../data/demoCheckout';
 import { demoSmartBasketMarket } from '../../data/demoSmartBasket';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { MainTabParamList, RootStackParamList } from '../../navigation/types';
+import {
+  getSponsoredProductsForCart,
+  trackSponsoredClick,
+  trackSponsoredImpression,
+} from '../../services/sponsoredPlacementService';
 import { useAppStore } from '../../store/useAppStore';
+import { isFounderUser } from '../../utils/profileIdentity';
 
 export function CartScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<MainTabParamList, 'Cart'>>();
   const { showToast, showDemoModal } = useFeedback();
+  const user = useAppStore((store) => store.user);
+  const profile = useAppStore((store) => store.profile);
   const cart = useAppStore((store) => store.cart);
   const restaurantCart = useAppStore((store) => store.restaurantCart);
   const orders = useAppStore((store) => store.orders);
+  const dataError = useAppStore((store) => store.dataError);
   const incrementCartItem = useAppStore((store) => store.incrementCartItem);
   const decrementCartItem = useAppStore((store) => store.decrementCartItem);
   const removeCartItem = useAppStore((store) => store.removeCartItem);
   const clearCart = useAppStore((store) => store.clearCart);
+  const addSponsoredProductToCart = useAppStore((store) => store.addSponsoredProductToCart);
   const incrementRestaurantItem = useAppStore((store) => store.incrementRestaurantItem);
   const decrementRestaurantItem = useAppStore((store) => store.decrementRestaurantItem);
   const removeRestaurantItem = useAppStore((store) => store.removeRestaurantItem);
   const clearRestaurantCart = useAppStore((store) => store.clearRestaurantCart);
   const [activeBasket, setActiveBasket] = useState<'market' | 'restaurant'>('market');
   const [selectedMarketId, setSelectedMarketId] = useState(demoMarketOptions[0].id);
-  const [address, setAddress] = useState('Saran Holding');
+  const [address, setAddress] = useState('Ev adresi');
   const [feedback, setFeedback] = useState('');
+  const isFounderAccount = isFounderUser(user);
+  const showTestingTools = Boolean(isFounderAccount || profile?.isBetaTester || user?.isBetaTester);
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const selectedMarket =
@@ -74,12 +88,29 @@ export function CartScreen() {
     18,
     Math.round(smartBasketTotal * demoSmartBasketMarket.commissionRate),
   );
+  const sponsoredCartProduct = useMemo(
+    () => getSponsoredProductsForCart(cart, 1)[0],
+    [cart],
+  );
 
   useEffect(() => {
     if (route.params?.activeBasket) {
       setActiveBasket(route.params.activeBasket);
     }
   }, [route.params?.activeBasket]);
+
+  useEffect(() => {
+    if (activeBasket !== 'market' || !sponsoredCartProduct) {
+      return;
+    }
+
+    trackSponsoredImpression(sponsoredCartProduct, 'cart', {
+      userId: user?.id,
+      userEmail: user?.email,
+      sourceScreen: 'CartScreen',
+      isDemoMode: user?.isDemo,
+    });
+  }, [activeBasket, sponsoredCartProduct, user?.email, user?.id, user?.isDemo]);
 
   const handleConfirm = () => {
     if (cart.length === 0) {
@@ -121,13 +152,28 @@ export function CartScreen() {
     }
 
     showDemoModal({
-      title: 'Restoran siparişi simüle edildi',
+      title: 'Restoran siparişi hazırlandı',
       message:
-        'Bu işlem gerçek restorana iletilmedi. TarifAL burada hazır yemek siparişinden restoran komisyonu modelini demo olarak gösterir.',
+        'Bu aşamada restorana sipariş iletilmez. Hazır yemek akışı test modunda tamamlanır.',
       primaryLabel: 'Ana Sayfaya Dön',
       secondaryLabel: 'Sepette Kal',
       onPrimary: () => navigation.navigate('MainTabs', { screen: 'Home' }),
     });
+  };
+
+  const handleSponsoredCartAdd = () => {
+    if (!sponsoredCartProduct) {
+      return;
+    }
+
+    trackSponsoredClick(sponsoredCartProduct, 'cart', {
+      userId: user?.id,
+      userEmail: user?.email,
+      sourceScreen: 'CartScreen',
+      isDemoMode: user?.isDemo,
+    });
+    addSponsoredProductToCart(sponsoredCartProduct, { placementType: 'cart' });
+    showToast(`${sponsoredCartProduct.productName} sepete eklendi.`, 'success');
   };
 
   return (
@@ -157,6 +203,13 @@ export function CartScreen() {
         onChange={setActiveBasket}
       />
 
+      <DataSyncBanner message={dataError} />
+      {showTestingTools ? (
+        <View style={styles.feedbackWrap}>
+          <FeedbackPromptButton screenName="CartScreen" compact />
+        </View>
+      ) : null}
+
       {activeBasket === 'restaurant' ? (
         <>
           <View style={styles.restaurantCard}>
@@ -177,12 +230,12 @@ export function CartScreen() {
                 <Text style={styles.statLabel}>Restoran sepeti</Text>
               </View>
               <View style={styles.conversionStat}>
-                <Text style={styles.statValue}>₺{restaurantCommission.toFixed(0)}</Text>
-                <Text style={styles.statLabel}>Komisyon sim.</Text>
+                <Text style={styles.statValue}>₺{restaurantDeliveryFee.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Teslimat</Text>
               </View>
               <View style={styles.conversionStat}>
-                <Text style={styles.statValue}>%{Math.round(commerceMarketDemo.conversionRate * 100)}</Text>
-                <Text style={styles.statLabel}>Dönüşüm</Text>
+                <Text style={styles.statValue}>{restaurantCart.length}</Text>
+                <Text style={styles.statLabel}>Restoran</Text>
               </View>
             </View>
           </View>
@@ -238,16 +291,16 @@ export function CartScreen() {
           <PriceBreakdownCard
             subtotal={restaurantSubtotal}
             deliveryFee={restaurantDeliveryFee}
-            commissionEstimate={restaurantCommission}
+            commissionEstimate={isFounderAccount ? restaurantCommission : 0}
             totalLabel="Restoran toplamı"
           />
           <AppButton
-            title="Demo Restoran Siparişini Onayla"
+            title="Restoran Siparişini Onayla"
             icon="restaurant"
             onPress={handleRestaurantConfirm}
             disabled={restaurantCart.length === 0}
           />
-          <Text style={styles.mockText}>* Restoran siparişi demo modunda simüle edilir; gerçek sipariş oluşturulmaz.</Text>
+          <Text style={styles.mockText}>* Bu aşamada ödeme alınmaz; restoran siparişi test modunda tamamlanır.</Text>
         </>
       ) : (
         <>
@@ -263,8 +316,8 @@ export function CartScreen() {
             </Text>
             <Text style={styles.conversionSubtitle}>
               {cart.length > 0
-                ? `${recipeCount} tariften gelen eksikler Demo Market sepetine hazırlandı.`
-                : 'Eksikleri sepete eklediğinde ticari dönüşüm akışı burada görünür.'}
+                ? `${recipeCount} tariften gelen eksikler ${selectedMarket.name} sepetine hazırlandı.`
+                : 'Eksikleri sepete eklediğinde market seçenekleri burada görünür.'}
             </Text>
           </View>
         </View>
@@ -291,7 +344,7 @@ export function CartScreen() {
       <View style={styles.marketCompareCard}>
         <View style={styles.marketCompareHeader}>
           <View>
-            <Text style={styles.marketCompareTitle}>Demo market seçimi</Text>
+            <Text style={styles.marketCompareTitle}>Market seçimi</Text>
             <Text style={styles.marketCompareText}>Fiyat ve teslimat farkını siparişten önce karşılaştır.</Text>
           </View>
           <Ionicons name="storefront-outline" size={21} color={theme.colors.primary} />
@@ -304,7 +357,7 @@ export function CartScreen() {
                 key={market.id}
                 onPress={() => {
                   setSelectedMarketId(market.id);
-                  showToast(`${market.name} demo market olarak seçildi.`, 'info');
+                  showToast(`${market.name} seçildi.`, 'info');
                 }}
                 activeOpacity={0.84}
                 style={[styles.marketOption, selected && styles.marketOptionActive]}
@@ -325,6 +378,15 @@ export function CartScreen() {
         </View>
       </View>
 
+      {sponsoredCartProduct ? (
+        <SponsoredProductCard
+          product={sponsoredCartProduct}
+          title="Sepetine uygun tamamlayıcı"
+          subtitle="Sepetindeki tarif ve eksik ürünlere göre önerildi."
+          onAddToCart={handleSponsoredCartAdd}
+        />
+      ) : null}
+
       {hasSmartBasketItems ? (
         <View style={styles.smartBasketCard}>
           <View style={styles.smartBasketHeader}>
@@ -334,7 +396,7 @@ export function CartScreen() {
             <View style={styles.smartBasketCopy}>
               <Text style={styles.smartBasketTitle}>Akıllı Sepet'ten aktarıldı</Text>
               <Text style={styles.smartBasketSubtitle}>
-                {smartBasketItems.length} ürün {demoSmartBasketMarket.name} eşleşmesiyle market sepetine dönüştü.
+                 {smartBasketItems.length} ürün market sepetine dönüştü.
               </Text>
             </View>
           </View>
@@ -343,16 +405,18 @@ export function CartScreen() {
               <Text style={styles.smartBasketValue}>₺{smartBasketTotal.toFixed(0)}</Text>
               <Text style={styles.smartBasketLabel}>Ürün toplamı</Text>
             </View>
-            <View style={styles.smartBasketStat}>
-              <Text style={styles.smartBasketValue}>₺{estimatedCommission}</Text>
-              <Text style={styles.smartBasketLabel}>Tahmini komisyon</Text>
-            </View>
+            {isFounderAccount ? (
+              <View style={styles.smartBasketStat}>
+                <Text style={styles.smartBasketValue}>₺{estimatedCommission}</Text>
+                <Text style={styles.smartBasketLabel}>Tahmini komisyon</Text>
+              </View>
+            ) : null}
             <View style={styles.smartBasketStat}>
               <Text style={styles.smartBasketValue}>{demoSmartBasketMarket.deliveryEstimate}</Text>
               <Text style={styles.smartBasketLabel}>Teslimat</Text>
             </View>
           </View>
-          <InvestorConversionStrip compact />
+          {isFounderAccount ? <InvestorConversionStrip compact /> : null}
         </View>
       ) : null}
 
@@ -442,7 +506,7 @@ export function CartScreen() {
         onPress={handleConfirm}
         disabled={cart.length === 0}
       />
-      <Text style={styles.mockText}>* Bu MVP demosunda ödeme simüle edilmiştir.</Text>
+      <Text style={styles.mockText}>* Bu aşamada ödeme alınmaz; sipariş akışı test modunda tamamlanır.</Text>
 
       <View style={styles.historyHeader}>
         <Text style={styles.historyTitle}>Sipariş Geçmişi</Text>
@@ -458,11 +522,11 @@ export function CartScreen() {
           orders.slice(0, 4).map((order) => (
             <View key={order.id} style={styles.orderCard}>
               <View style={styles.orderTop}>
-                <Text style={styles.orderId} numberOfLines={1}>#{order.id.replace('order-', '')}</Text>
+                <Text style={styles.orderId} numberOfLines={1}>#{order.orderNumber ?? order.id.replace('order-', '')}</Text>
                 <Text style={styles.orderTotal}>₺{order.total.toFixed(2)}</Text>
               </View>
               <Text style={styles.orderMeta} numberOfLines={1}>
-                {order.items.length} ürün • {order.marketName ?? 'Demo Market'} • {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                {order.items.length} ürün • {order.marketName ?? 'TarifAL Market'} • {new Date(order.createdAt).toLocaleDateString('tr-TR')}
               </Text>
               <Text style={styles.orderAddress} numberOfLines={2}>{order.address}</Text>
             </View>
@@ -498,6 +562,9 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 13,
     fontWeight: '600',
+  },
+  feedbackWrap: {
+    marginTop: 12,
   },
   clearButton: {
     minHeight: 38,

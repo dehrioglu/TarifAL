@@ -12,7 +12,7 @@ export const socialBotResponses: Record<string, string> = {
   'Bugünün trend tarifleri':
     'Bugün toplulukta Hünkar Beğendi, İçli Köfte ve Ev Baklavası öne çıkıyor. Üçü de zor ama yüksek kaydetme alıyor.',
   '100 TL altı ne yapabilirim?':
-    'Mercimek çorbası, bulgur pilavı ve yoğurtlu makarna 100 TL altı demo sepetle öne çıkıyor.',
+    'Mercimek çorbası, bulgur pilavı ve yoğurtlu makarna 100 TL altı sepet önerisiyle öne çıkıyor.',
   'Usta işi tarif öner':
     'Usta işi için Perde Pilavı öneririm. 110 dakika sürüyor, misafir sofrasında çok güçlü duruyor.',
   'Hazır sipariş edilebilir yemekler':

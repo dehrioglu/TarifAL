@@ -22,8 +22,8 @@ export function CommentList({
     return (
       <View style={styles.empty}>
         <Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.colors.subtle} />
-        <Text style={styles.emptyTitle}>Ilk yorumu sen yaz</Text>
-        <Text style={styles.emptyText}>Tarif hakkindaki deneyimin burada gorunecek.</Text>
+        <Text style={styles.emptyTitle}>İlk yorumu sen yaz</Text>
+        <Text style={styles.emptyText}>Tarif hakkındaki deneyimin burada görünecek.</Text>
       </View>
     );
   }
@@ -73,7 +73,7 @@ export function CommentList({
                   />
                   <Text style={[styles.footerText, comment.liked && styles.activeFooterText]}>{comment.likes}</Text>
                 </TouchableOpacity>
-                <Text style={styles.reply}>Yanitla</Text>
+                <Text style={styles.reply}>Yanıtla</Text>
               </View>
             </View>
           </View>

@@ -1,16 +1,14 @@
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+export const IMAGE_UPLOAD_DISABLED_MESSAGE =
+  'Görsel yükleme özelliği şu anda kapalı. Görsel bağlantısı ekleyebilir veya varsayılan görselle devam edebilirsin.';
 
-import { storage } from './firebase';
+export const uploadRecipeImage = async (uri: string, userId: string, isDemo = false) => {
+  const cleanUri = uri.trim();
 
-export const uploadRecipeImage = async (uri: string, userId: string) => {
-  if (!storage) {
-    return uri;
+  if (/^https?:\/\//i.test(cleanUri)) {
+    return cleanUri;
   }
 
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const imageRef = ref(storage, `recipes/${userId}/${Date.now()}.jpg`);
-  await uploadBytes(imageRef, blob);
-
-  return getDownloadURL(imageRef);
+  void userId;
+  void isDemo;
+  throw new Error(IMAGE_UPLOAD_DISABLED_MESSAGE);
 };

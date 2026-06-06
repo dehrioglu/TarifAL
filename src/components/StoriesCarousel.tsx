@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ImageBackground,
   Modal,
@@ -30,51 +30,90 @@ export function StoriesCarousel({
 }: StoriesCarouselProps) {
   const [selectedStory, setSelectedStory] = useState<SocialStory | null>(null);
   const selectedUser = selectedStory ? usersById[selectedStory.authorId] : undefined;
+  const selectedIndex = useMemo(
+    () => stories.findIndex((story) => story.id === selectedStory?.id),
+    [selectedStory?.id, stories],
+  );
 
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {stories.map((story) => {
-          const user = usersById[story.authorId];
+      <View style={styles.panel}>
+        <View style={styles.panelHeader}>
+          <View style={styles.panelCopy}>
+            <Text style={styles.panelTitle}>Şeflerden hikayeler</Text>
+            <Text style={styles.panelSubtitle}>Kısa öneriler, püf noktaları ve sepet fikirleri.</Text>
+          </View>
+          <View style={styles.liveBadge}>
+            <Ionicons name="sparkles" size={13} color={theme.colors.primary} />
+            <Text style={styles.liveBadgeText}>{stories.length} yeni</Text>
+          </View>
+        </View>
 
-          if (!user) {
-            return null;
-          }
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+          {stories.map((story) => {
+            const user = usersById[story.authorId];
 
-          return (
-            <TouchableOpacity
-              key={story.id}
-              onPress={() => setSelectedStory(story)}
-              activeOpacity={0.84}
-              style={styles.storyItem}
-            >
-              <View style={styles.ring}>
-                <UserAvatar uri={user.avatarUrl} name={user.name} size={58} />
-              </View>
-              <Text style={styles.storyName} numberOfLines={1}>
-                {user.name}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            if (!user) {
+              return null;
+            }
+
+            return (
+              <TouchableOpacity
+                key={story.id}
+                onPress={() => setSelectedStory(story)}
+                activeOpacity={0.84}
+                style={styles.storyItem}
+                accessibilityRole="button"
+                accessibilityLabel={`${user.name} hikayesini aç`}
+              >
+                <View style={styles.ring}>
+                  <View style={styles.avatarShell}>
+                    <UserAvatar uri={user.avatarUrl} name={user.name} size={56} />
+                  </View>
+                  {user.isVerified ? (
+                    <View style={styles.verifiedDot}>
+                      <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.storyName} numberOfLines={1}>
+                  {user.name}
+                </Text>
+                <Text style={styles.storyLevel} numberOfLines={1}>
+                  {user.level}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <Modal visible={Boolean(selectedStory)} transparent animationType="fade" onRequestClose={() => setSelectedStory(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             {selectedStory && selectedUser ? (
-              <ImageBackground
-                source={{ uri: selectedStory.imageUrl }}
-                style={styles.storyPreview}
-                imageStyle={styles.storyImage}
-              >
+              <ImageBackground source={{ uri: selectedStory.imageUrl }} style={styles.storyPreview} imageStyle={styles.storyImage}>
                 <View style={styles.storyOverlay} />
+                <View style={styles.progressRow}>
+                  {stories.slice(0, 6).map((story, index) => (
+                    <View
+                      key={story.id}
+                      style={[styles.progressTrack, index <= selectedIndex && styles.progressTrackActive]}
+                    />
+                  ))}
+                </View>
+
                 <View style={styles.modalHeader}>
                   <View style={styles.modalUser}>
                     <UserAvatar uri={selectedUser.avatarUrl} name={selectedUser.name} size={38} />
                     <View style={styles.modalUserCopy}>
-                      <Text style={styles.modalName}>{selectedUser.name}</Text>
-                      <Text style={styles.modalTime}>{selectedStory.createdAt}</Text>
+                      <View style={styles.modalNameRow}>
+                        <Text style={styles.modalName}>{selectedUser.name}</Text>
+                        {selectedUser.isVerified ? <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" /> : null}
+                      </View>
+                      <Text style={styles.modalTime}>
+                        {selectedUser.level} • {selectedStory.createdAt}
+                      </Text>
                     </View>
                   </View>
                   <Pressable
@@ -83,12 +122,27 @@ export function StoriesCarousel({
                     accessibilityLabel="Kapat"
                     style={styles.closeButton}
                   >
-                    <Ionicons name="close" size={20} color={theme.colors.text} />
+                    <Ionicons name="close" size={22} color={theme.colors.text} />
                   </Pressable>
                 </View>
+
                 <View style={styles.modalBody}>
-                  <Text style={styles.modalTitle}>TarifAL Hikaye</Text>
+                  <View style={styles.modalBadge}>
+                    <Ionicons name="sparkles" size={14} color={theme.colors.primary} />
+                    <Text style={styles.modalBadgeText}>Topluluk önerisi</Text>
+                  </View>
+                  <Text style={styles.modalTitle}>{getStoryTitle(selectedUser)}</Text>
                   <Text style={styles.modalText}>{selectedStory.text}</Text>
+                  <View style={styles.insightRow}>
+                    <View style={styles.insightPill}>
+                      <Ionicons name="time-outline" size={15} color="#FFFFFF" />
+                      <Text style={styles.insightText}>Hızlı fikir</Text>
+                    </View>
+                    <View style={styles.insightPill}>
+                      <Ionicons name="basket-outline" size={15} color="#FFFFFF" />
+                      <Text style={styles.insightText}>Sepete uygun</Text>
+                    </View>
+                  </View>
                 </View>
               </ImageBackground>
             ) : null}
@@ -104,6 +158,7 @@ export function StoriesCarousel({
                 activeOpacity={0.86}
                 style={styles.primaryAction}
               >
+                <Ionicons name="restaurant-outline" size={17} color="#FFFFFF" />
                 <Text style={styles.primaryActionText}>Tarifi Gör</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -116,6 +171,7 @@ export function StoriesCarousel({
                 activeOpacity={0.86}
                 style={styles.softAction}
               >
+                <Ionicons name="basket-outline" size={17} color={theme.colors.primary} />
                 <Text style={styles.softActionText}>Sepete Ekle</Text>
               </TouchableOpacity>
             </View>
@@ -126,23 +182,96 @@ export function StoriesCarousel({
   );
 }
 
+function getStoryTitle(user: SocialUser) {
+  return user.level ? `${user.level} önerisi` : 'TarifAL hikayesi';
+}
+
 const styles = StyleSheet.create({
-  row: {
+  panel: {
+    marginTop: 16,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    ...theme.shadow,
+    shadowOpacity: 0.04,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: 12,
-    paddingVertical: 12,
+  },
+  panelCopy: {
+    flex: 1,
+  },
+  panelTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  panelSubtitle: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  liveBadge: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  liveBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  row: {
+    gap: 14,
+    paddingTop: 14,
+    paddingBottom: 2,
   },
   storyItem: {
-    width: 74,
+    width: 76,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   ring: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 68,
+    height: 68,
+    borderRadius: 24,
     borderWidth: 2,
     borderColor: theme.colors.primary,
+    backgroundColor: '#FFF3EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  avatarShell: {
+    width: 60,
+    height: 60,
+    borderRadius: 21,
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  verifiedDot: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -153,9 +282,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textAlign: 'center',
   },
+  storyLevel: {
+    width: '100%',
+    color: theme.colors.subtle,
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(11,16,32,0.58)',
+    backgroundColor: 'rgba(11,16,32,0.62)',
     padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -170,7 +306,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
   },
   storyPreview: {
-    minHeight: 430,
+    minHeight: 500,
     justifyContent: 'space-between',
   },
   storyImage: {
@@ -178,10 +314,29 @@ const styles = StyleSheet.create({
   },
   storyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11,16,32,0.28)',
+    backgroundColor: 'rgba(11,16,32,0.32)',
+  },
+  progressRow: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 5,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 3,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  progressTrackActive: {
+    backgroundColor: '#FFFFFF',
   },
   modalHeader: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 26,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -196,6 +351,11 @@ const styles = StyleSheet.create({
   modalUserCopy: {
     flex: 1,
   },
+  modalNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   modalName: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -208,9 +368,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -218,9 +378,26 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 18,
   },
+  modalBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modalBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   modalTitle: {
+    marginTop: 12,
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
+    lineHeight: 33,
     fontWeight: '900',
   },
   modalText: {
@@ -230,8 +407,30 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '800',
   },
+  insightRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  insightPill: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  insightText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
   modalActions: {
-    padding: 14,
+    padding: 16,
     flexDirection: 'row',
     gap: 10,
   },
@@ -240,8 +439,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
   },
   primaryActionText: {
     color: '#FFFFFF',
@@ -253,8 +454,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.primarySoft,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
   },
   softActionText: {
     color: theme.colors.primary,

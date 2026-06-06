@@ -47,7 +47,7 @@ export const mockSocialFeedExtras: SocialFeedPost[] = [
     type: 'basket',
     authorId: 'user-tarifal-bot',
     title: 'Bu Haftanın Ekonomik Bakliyat Sepeti',
-    text: 'Mercimek, bulgur, nohut ve pirinçle 5 ana öğün planı. Demo sepet 420 TL’den başlıyor ve sponsorlu ürün alternatifi içeriyor.',
+    text: 'Mercimek, bulgur, nohut ve pirinçle 5 ana öğün planı. Ekonomik sepet 420 TL’den başlıyor ve avantajlı ürün alternatifi içeriyor.',
     imageUrl:
       'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?q=80&w=1200&auto=format&fit=crop',
     tags: ['ekonomik', 'sepet', 'bakliyat', 'tarifalönerisi'],
@@ -65,7 +65,7 @@ export const mockSocialFeedExtras: SocialFeedPost[] = [
     authorId: 'user-tarifal-bot',
     recipeId: 'recipe-hunkar-begendi',
     title: 'Bugün Hünkar Beğendi Siparişinde Öne Çıkan Restoran',
-    text: 'Şefin Sofrası bugün Hünkar Beğendi için hızlı teslimat ve yüksek puanla öne çıkıyor. Hazır yemek akışı demo modunda simüle edilir.',
+    text: 'Şefin Sofrası bugün Hünkar Beğendi için hızlı teslimat ve yüksek puanla öne çıkıyor. Hazır yemek akışı test modunda tamamlanır.',
     imageUrl:
       'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1200&auto=format&fit=crop',
     tags: ['hazırsipariş', 'premium', 'restoran'],
@@ -76,7 +76,7 @@ export const mockSocialFeedExtras: SocialFeedPost[] = [
     shares: 54,
     restaurantOrderAvailable: true,
     restaurantStartPrice: 265,
-    commercialBadges: ['Restoran Önerisi', 'Demo Market'],
+    commercialBadges: ['Restoran Önerisi', 'TarifAL Market'],
   },
   {
     id: 'post-poll-dinner',

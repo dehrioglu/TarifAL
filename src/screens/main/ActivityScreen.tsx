@@ -14,6 +14,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { useAppStore } from '../../store/useAppStore';
 import { useDailyReturn } from '../../retention/useDailyReturn';
 import { SocialUser } from '../../types';
+import { buildCurrentSocialUser } from '../../utils/profileIdentity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Activity'>;
 
@@ -26,27 +27,7 @@ export function ActivityScreen({ navigation }: Props) {
   const { streak, completedToday, completeDailyAction } = useDailyReturn();
 
   const usersById = useMemo(() => {
-    const demoUser: SocialUser = {
-      id: currentUser?.id ?? 'demo-user',
-      name: currentUser?.name ?? 'Enes Kervankaya',
-      username: '@eneschef',
-      avatarUrl:
-        currentUser?.avatarUrl ??
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=300&auto=format&fit=crop',
-      coverImageUrl:
-        'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=1200&auto=format&fit=crop',
-      bio: 'TarifAL kurucusu.',
-      location: 'İstanbul',
-      followers: 1840,
-      following: 86,
-      recipeCount: 4,
-      totalLikes: 24800,
-      averageRating: 4.8,
-      badges: ['Kurucu', 'TarifAL Onaylı'],
-      level: 'TarifAL Kurucusu',
-      isVerified: true,
-      expertiseAreas: ['Akıllı sepet'],
-    };
+    const demoUser: SocialUser = buildCurrentSocialUser(currentUser);
 
     return [demoUser, ...mockSocialUsers].reduce<Record<string, SocialUser>>((acc, user) => {
       acc[user.id] = user;
@@ -94,7 +75,7 @@ export function ActivityScreen({ navigation }: Props) {
         </TouchableOpacity>
         <View style={styles.topCopy}>
           <Text style={styles.title}>Aktivite Merkezi</Text>
-          <Text style={styles.subtitle}>Sosyal bildirimler, bot önerileri ve kampanyalı sepet sinyalleri.</Text>
+          <Text style={styles.subtitle}>Sana özel yorumlar, takip sinyalleri, bot önerileri ve sepet fırsatları.</Text>
         </View>
       </View>
 
@@ -103,9 +84,9 @@ export function ActivityScreen({ navigation }: Props) {
           <Ionicons name="pulse-outline" size={24} color={theme.colors.primary} />
         </View>
         <View style={styles.summaryCopy}>
-          <Text style={styles.summaryTitle}>Platform canlı görünümü</Text>
+          <Text style={styles.summaryTitle}>Bugünkü kişisel mutfak akışın</Text>
           <Text style={styles.summaryText}>
-            {unreadCount} okunmamış bildirim var. Beğeni, yorum, takip, kampanya ve deneme aktiviteleri demo veriyle beslenir.
+            {unreadCount} okunmamış bildirim var. Kendi tariflerin, takip ettiğin şefler ve akıllı sepet sinyalleri burada toplanır.
           </Text>
         </View>
       </View>
@@ -160,8 +141,8 @@ export function ActivityScreen({ navigation }: Props) {
       />
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Canlı akış</Text>
-        <Text style={styles.sectionAction}>Mock sosyal hareketler</Text>
+        <Text style={styles.sectionTitle}>Takip ettiğin topluluk</Text>
+        <Text style={styles.sectionAction}>Popüler sinyaller</Text>
       </View>
       <View style={styles.timeline}>
         {mockSocialActivities.map((activity) => (

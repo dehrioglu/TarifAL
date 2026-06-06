@@ -35,11 +35,11 @@ export function CommentInput({ onSubmit }: CommentInputProps) {
       <Pressable
         onPress={submit}
         accessibilityRole="button"
-        accessibilityLabel="Yorumu gonder"
+        accessibilityLabel="Yorumu gönder"
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       >
         <Ionicons name="send" size={16} color="#FFFFFF" />
-        <Text style={styles.buttonText}>Gonder</Text>
+        <Text style={styles.buttonText}>Gönder</Text>
       </Pressable>
     </View>
   );

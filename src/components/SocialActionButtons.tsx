@@ -43,7 +43,7 @@ export function SocialIconButton({
 }
 
 export const LikeButton = (props: Omit<SocialIconButtonProps, 'icon' | 'activeIcon' | 'label'>) => (
-  <SocialIconButton {...props} label="Begen" icon="heart-outline" activeIcon="heart" />
+  <SocialIconButton {...props} label="Beğen" icon="heart-outline" activeIcon="heart" />
 );
 
 export const SaveButton = (props: Omit<SocialIconButtonProps, 'icon' | 'activeIcon' | 'label'>) => (
@@ -51,20 +51,24 @@ export const SaveButton = (props: Omit<SocialIconButtonProps, 'icon' | 'activeIc
 );
 
 export const ShareButton = (props: Omit<SocialIconButtonProps, 'icon' | 'activeIcon' | 'label' | 'active'>) => (
-  <SocialIconButton {...props} label="Paylas" icon="share-social-outline" />
+  <SocialIconButton {...props} label="Paylaş" icon="share-social-outline" />
 );
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 38,
+    minHeight: 40,
     minWidth: 54,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
+    ...theme.shadow,
+    shadowOpacity: 0.03,
   },
   text: {
     color: theme.colors.muted,

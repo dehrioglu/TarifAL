@@ -53,7 +53,7 @@ export function HomeQuickCreateMenu({
                 key={action.id}
                 onPress={() => {
                   onClose();
-                  setTimeout(action.onPress, 180);
+                  setTimeout(action.onPress, 120);
                 }}
                 activeOpacity={0.84}
                 accessibilityRole="button"
@@ -80,7 +80,7 @@ export function HomeQuickCreateMenu({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(11,16,32,0.46)',
+    backgroundColor: 'rgba(11,16,32,0.36)',
     justifyContent: 'flex-end',
   },
   sheet: {

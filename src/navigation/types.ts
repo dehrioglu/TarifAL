@@ -28,4 +28,5 @@ export type RootStackParamList = {
   Activity: undefined;
   Search: undefined;
   CollectionDetail: { collectionId: string };
+  AdminPanel: undefined;
 };

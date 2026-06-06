@@ -5,6 +5,8 @@ import { demoSmartBasketMarket } from '../data/demoSmartBasket';
 import { theme } from '../constants/theme';
 import { SmartBasketPlan } from '../types';
 import { InvestorConversionStrip } from './InvestorConversionStrip';
+import { useAppStore } from '../store/useAppStore';
+import { isFounderUser } from '../utils/profileIdentity';
 
 type SmartBasketMarketPreviewProps = {
   plan: SmartBasketPlan;
@@ -12,6 +14,10 @@ type SmartBasketMarketPreviewProps = {
 };
 
 export function SmartBasketMarketPreview({ plan, onAddToCart }: SmartBasketMarketPreviewProps) {
+  const user = useAppStore((store) => store.user);
+  const profile = useAppStore((store) => store.profile);
+  const showFounderMetrics = Boolean(isFounderUser(user) || profile?.isBetaTester || user?.isBetaTester);
+
   return (
     <View style={styles.stack}>
       <View style={styles.card}>
@@ -20,7 +26,7 @@ export function SmartBasketMarketPreview({ plan, onAddToCart }: SmartBasketMarke
             <Ionicons name="storefront-outline" size={23} color={theme.colors.primary} />
           </View>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>Demo market sepeti</Text>
+            <Text style={styles.eyebrow}>Market sepeti</Text>
             <Text style={styles.title}>{demoSmartBasketMarket.name}</Text>
             <Text style={styles.subtitle}>Teslimat: {demoSmartBasketMarket.deliveryEstimate}</Text>
           </View>
@@ -39,16 +45,18 @@ export function SmartBasketMarketPreview({ plan, onAddToCart }: SmartBasketMarke
             <Text style={styles.summaryLabel}>Ürün toplamı</Text>
             <Text style={styles.summaryValue}>₺{plan.missingTotal.toFixed(0)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tahmini komisyon</Text>
-            <Text style={styles.primaryValue}>₺{Math.max(18, plan.estimatedCommission).toFixed(0)}</Text>
-          </View>
+          {showFounderMetrics ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tahmini komisyon</Text>
+              <Text style={styles.primaryValue}>₺{Math.max(18, plan.estimatedCommission).toFixed(0)}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.revenueBox}>
-          <Ionicons name="analytics-outline" size={18} color={theme.colors.primary} />
+          <Ionicons name="shield-checkmark-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.revenueText}>
-            Bu ekranda TarifAL'in gelir modeli görünür: tarif niyeti market sepetine dönüşür.
+            Ürünler seçili market sepetine aktarılır. Bu aşamada ödeme alınmaz.
           </Text>
         </View>
 
@@ -58,7 +66,7 @@ export function SmartBasketMarketPreview({ plan, onAddToCart }: SmartBasketMarke
         </TouchableOpacity>
       </View>
 
-      <InvestorConversionStrip />
+      {showFounderMetrics ? <InvestorConversionStrip /> : null}
     </View>
   );
 }

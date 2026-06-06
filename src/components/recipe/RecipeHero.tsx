@@ -1,4 +1,4 @@
-import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../../constants/theme';
@@ -9,6 +9,7 @@ type RecipeHeroProps = {
   matchPercent: number;
   missingCount: number;
   liked: boolean;
+  favoriteLoading?: boolean;
   safeTop: number;
   onBack: () => void;
   onToggleLike: () => void;
@@ -19,6 +20,7 @@ export function RecipeHero({
   matchPercent,
   missingCount,
   liked,
+  favoriteLoading = false,
   safeTop,
   onBack,
   onToggleLike,
@@ -45,16 +47,21 @@ export function RecipeHero({
       </TouchableOpacity>
       <TouchableOpacity
         onPress={onToggleLike}
+        disabled={favoriteLoading}
         activeOpacity={0.84}
         accessibilityRole="button"
         accessibilityLabel={liked ? 'Favorilerden çıkar' : 'Favorilere ekle'}
         style={[styles.iconButton, styles.likeButton, { top: safeTop + 12 }]}
       >
-        <Ionicons
-          name={liked ? 'heart' : 'heart-outline'}
-          size={24}
-          color={liked ? theme.colors.primary : theme.colors.text}
-        />
+        {favoriteLoading ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : (
+          <Ionicons
+            name={liked ? 'heart' : 'heart-outline'}
+            size={24}
+            color={liked ? theme.colors.primary : theme.colors.text}
+          />
+        )}
       </TouchableOpacity>
 
       <View style={styles.badges}>

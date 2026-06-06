@@ -46,7 +46,8 @@ export function AppButton({
         styles.button,
         styles[variant],
         isPrimary && theme.orangeShadow,
-        (pressed || disabled) && styles.pressed,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
         style,
       ]}
     >
@@ -87,7 +88,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   pressed: {
-    opacity: 0.72,
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
+  disabled: {
+    opacity: 0.58,
   },
   text: {
     fontWeight: '800',

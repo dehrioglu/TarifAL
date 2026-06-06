@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isFounderEmail() {
+      return signedIn() && request.auth.token.email == 'kervankayaenes@gmail.com';
+    }
+
+    function hasUserProfile() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return hasUserProfile() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isFounder() {
+      return isFounderEmail() || hasRole('founder');
+    }
+
+    function isAdmin() {
+      return isFounder() || hasRole('admin');
+    }
+
+    function isPrivileged() {
+      return isAdmin();
+    }
+
+    function requestUserIdIsSelf() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function roleIsAllowedOnCreate() {
+      return !request.resource.data.keys().hasAny(['role']) ||
+        request.resource.data.role == 'user' ||
+        (request.resource.data.role == 'founder' && isFounderEmail());
+    }
+
+    function roleIsSafeForOwnerUpdate() {
+      return !request.resource.data.keys().hasAny(['role']) ||
+        (resource.data.keys().hasAny(['role']) && request.resource.data.role == resource.data.role) ||
+        (!resource.data.keys().hasAny(['role']) && request.resource.data.role == 'user') ||
+        (!resource.data.keys().hasAny(['role']) && request.resource.data.role == 'founder' && isFounderEmail());
+    }
+
+    match /users/{userId} {
+      allow read: if owns(userId) || isPrivileged();
+      allow create: if owns(userId) && roleIsAllowedOnCreate();
+      allow update: if (owns(userId) && roleIsSafeForOwnerUpdate()) || isPrivileged();
+      allow delete: if isPrivileged();
+
+      match /favorites/{recipeId} {
+        allow read, write: if owns(userId);
+      }
+
+      match /cart/{itemId} {
+        allow read, write: if owns(userId);
+      }
+    }
+
+    match /recipes/{recipeId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if signedIn() &&
+        (resource.data.createdBy == request.auth.uid || isPrivileged());
+    }
+
+    match /ingredients/{ingredientId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    match /orders/{orderId} {
+      allow create: if requestUserIdIsSelf() &&
+        request.resource.data.status == 'new' &&
+        request.resource.data.isPaid == false &&
+        request.resource.data.paymentStatus == 'demo';
+      allow read: if (signedIn() && resource.data.userId == request.auth.uid) || isPrivileged();
+      allow update: if isPrivileged();
+      allow delete: if isPrivileged();
+    }
+
+    match /feedback/{feedbackId} {
+      allow create: if requestUserIdIsSelf() && request.resource.data.isDemoMode == false;
+      allow read: if isPrivileged();
+      allow update, delete: if false;
+    }
+
+    match /miniSurveyResponses/{responseId} {
+      allow create: if requestUserIdIsSelf() && request.resource.data.isDemoMode == false;
+      allow read: if isPrivileged();
+      allow update, delete: if false;
+    }
+
+    match /analyticsEvents/{eventId} {
+      allow create: if requestUserIdIsSelf() && request.resource.data.isDemoMode == false;
+      allow read: if isPrivileged();
+      allow update, delete: if false;
+    }
+
+    match /sponsoredProducts/{productId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+  }
+}

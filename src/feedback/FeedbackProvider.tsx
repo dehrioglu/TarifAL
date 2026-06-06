@@ -55,7 +55,7 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
       title: 'Yakında',
       message:
         message ??
-        'Bu özellik MVP sonrası gerçek entegrasyonla aktif edilecek. Demo akışında simüle edilmiş olarak gösteriliyor.',
+        'Bu özellik beta süreci sonrasında gerçek entegrasyonla aktif edilecek. Şimdilik güvenli test akışıyla gösteriliyor.',
       primaryLabel: 'Tamam',
     });
   }, []);

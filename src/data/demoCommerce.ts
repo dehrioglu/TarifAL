@@ -1,7 +1,7 @@
 import { Ingredient, IngredientBrandOption, RestaurantOption } from '../types';
 
 export const commerceMarketDemo = {
-  marketName: 'TarifAL Demo Market',
+  marketName: 'TarifAL Market',
   deliveryEstimate: '30-45 dk',
   marketCommissionRate: 0.08,
   restaurantCommissionRate: 0.12,

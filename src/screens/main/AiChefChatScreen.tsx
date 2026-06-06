@@ -1,6 +1,7 @@
-import { ComponentProps, useMemo, useState } from 'react';
+import { ComponentProps, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,14 +12,23 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../components/AppButton';
+import { FeedbackPromptButton } from '../../components/FeedbackPromptButton';
 import { Screen } from '../../components/Screen';
+import { SponsoredProductCard } from '../../components/SponsoredProductCard';
 import { theme } from '../../constants/theme';
 import { demoAiChefPrompts, demoAiChefSuggestions } from '../../data/demoAiChef';
 import { useFeedback } from '../../feedback/FeedbackProvider';
 import { RootStackParamList } from '../../navigation/types';
+import { trackEvent } from '../../services/analyticsService';
 import { getSocialBotResponse, getSocialBotSuggestions } from '../../services/botService';
+import {
+  getSponsoredProductsForRecipe,
+  trackSponsoredClick,
+  trackSponsoredImpression,
+} from '../../services/sponsoredPlacementService';
 import { useAppStore } from '../../store/useAppStore';
-import { Recipe, RecipeMatch } from '../../types';
+import { Recipe, RecipeMatch, SponsoredProduct } from '../../types';
+import { isFounderUser } from '../../utils/profileIdentity';
 import {
   getRecipeCost,
   getRecipeMatch,
@@ -36,6 +46,7 @@ type ChatMessage = {
   text: string;
   matches?: RecipeMatch[];
   pantryItems?: string[];
+  sponsoredProduct?: SponsoredProduct;
 };
 
 type ChefIntent = {
@@ -49,6 +60,45 @@ type ChefIntent = {
 };
 
 const fallbackPrompt = 'Evdeki malzemelerime göre pratik ve ekonomik bir yemek öner.';
+
+const promptFallbackIcons: IconName[] = [
+  'sparkles-outline',
+  'cash-outline',
+  'time-outline',
+  'happy-outline',
+  'barbell-outline',
+  'restaurant-outline',
+];
+
+const getPromptIcon = (prompt: string, index: number): IconName => {
+  const normalized = normalizeIngredientText(prompt);
+
+  if (normalized.includes('tl') || normalized.includes('ekonomik') || normalized.includes('butce')) {
+    return 'cash-outline';
+  }
+
+  if (normalized.includes('dakika') || normalized.includes('hazir') || normalized.includes('pratik')) {
+    return 'timer-outline';
+  }
+
+  if (normalized.includes('cocuk')) {
+    return 'happy-outline';
+  }
+
+  if (normalized.includes('kas') || normalized.includes('protein')) {
+    return 'barbell-outline';
+  }
+
+  if (normalized.includes('siparis') || normalized.includes('sepet')) {
+    return 'basket-outline';
+  }
+
+  if (normalized.includes('tatli')) {
+    return 'ice-cream-outline';
+  }
+
+  return promptFallbackIcons[index % promptFallbackIcons.length];
+};
 
 const extractIntent = (prompt: string): ChefIntent => {
   const normalized = normalizeIngredientText(prompt);
@@ -163,15 +213,22 @@ const getInitialMessage = (pantryText: string): ChatMessage => ({
 export function AiChefChatScreen({ navigation }: Props) {
   const recipes = useAppStore((store) => store.recipes);
   const pantryText = useAppStore((store) => store.pantryText);
+  const user = useAppStore((store) => store.user);
+  const profile = useAppStore((store) => store.profile);
+  const accountMode = useAppStore((store) => store.accountMode);
   const userGoal = useAppStore((store) => store.userGoal);
   const likes = useAppStore((store) => store.likes);
   const toggleLike = useAppStore((store) => store.toggleLike);
   const setPantryText = useAppStore((store) => store.setPantryText);
   const addMissingIngredientsToCart = useAppStore((store) => store.addMissingIngredientsToCart);
+  const addSponsoredProductToCart = useAppStore((store) => store.addSponsoredProductToCart);
   const { showToast, showDemoModal } = useFeedback();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(() => [getInitialMessage(pantryText)]);
   const [expandedMessageIds, setExpandedMessageIds] = useState<Record<string, boolean>>({});
+  const [activePrompt, setActivePrompt] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const pendingScrollTargetRef = useRef<'result' | 'end' | null>(null);
 
   const latestAssistantMatches = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant' && message.matches)?.matches ?? [],
@@ -182,6 +239,25 @@ export function AiChefChatScreen({ navigation }: Props) {
     [messages],
   );
   const socialBotSuggestions = useMemo(() => getSocialBotSuggestions(), []);
+  const showTestingTools = Boolean(isFounderUser(user) || profile?.isBetaTester || user?.isBetaTester);
+
+  useEffect(() => {
+    void trackEvent('ai_chef_opened', {
+      userId: user?.id,
+      userEmail: user?.email,
+      sourceScreen: 'AiChefChat',
+      isDemoMode: accountMode === 'demo',
+      extraData: {
+        pantryText,
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    if (pendingScrollTargetRef.current === 'end') {
+      scrollToConversationEnd();
+    }
+  }, [messages.length]);
 
   const createMatches = (prompt: string) => {
     const intent = extractIntent(prompt);
@@ -215,6 +291,29 @@ export function AiChefChatScreen({ navigation }: Props) {
     return { intent, pantryItems, matches };
   };
 
+  const scrollToLatestResult = (targetY: number) => {
+    pendingScrollTargetRef.current = null;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          y: Math.max(targetY - 18, 0),
+          animated: true,
+        });
+      }, 80);
+    });
+  };
+
+  const scrollToConversationEnd = () => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+        if (pendingScrollTargetRef.current === 'end') {
+          pendingScrollTargetRef.current = null;
+        }
+      }, 140);
+    });
+  };
+
   const sendPrompt = (value = input) => {
     const trimmedPrompt = value.trim();
 
@@ -226,7 +325,11 @@ export function AiChefChatScreen({ navigation }: Props) {
     const prompt = trimmedPrompt || fallbackPrompt;
     const botResponse = getSocialBotResponse(prompt);
     const { intent, pantryItems, matches } = createMatches(prompt);
+    const sponsoredProduct = matches[0]
+      ? getSponsoredProductsForRecipe(matches[0].recipe, 'ai_chef', 1)[0]
+      : undefined;
     const pantryValue = pantryItems.join(', ');
+    setActivePrompt(prompt);
 
     if (pantryValue) {
       setPantryText(pantryValue);
@@ -245,10 +348,24 @@ export function AiChefChatScreen({ navigation }: Props) {
         : `${botResponse} ${buildAssistantText(prompt, matches, pantryItems, intent)}`,
       matches,
       pantryItems,
+      sponsoredProduct,
     };
+
+    if (sponsoredProduct && matches[0]) {
+      trackSponsoredImpression(sponsoredProduct, 'ai_chef', {
+        userId: user?.id,
+        userEmail: user?.email,
+        recipeId: matches[0].recipe.id,
+        recipeTitle: matches[0].recipe.title,
+        sourceScreen: 'AiChefChat',
+        isDemoMode: accountMode === 'demo',
+      });
+    }
 
     setMessages((current) => [...current, userMessage, assistantMessage]);
     setExpandedMessageIds({});
+    pendingScrollTargetRef.current = matches.length > 0 ? 'result' : 'end';
+    scrollToConversationEnd();
     setInput('');
   };
 
@@ -278,6 +395,23 @@ export function AiChefChatScreen({ navigation }: Props) {
     showToast(liked ? 'Favorilerden çıkarıldı.' : 'Favorilere eklendi.');
   };
 
+  const handleSponsoredProductAdd = (product: SponsoredProduct, match?: RecipeMatch) => {
+    trackSponsoredClick(product, 'ai_chef', {
+      userId: user?.id,
+      userEmail: user?.email,
+      recipeId: match?.recipe.id,
+      recipeTitle: match?.recipe.title,
+      sourceScreen: 'AiChefChat',
+      isDemoMode: accountMode === 'demo',
+    });
+    addSponsoredProductToCart(product, {
+      recipeId: match?.recipe.id,
+      recipeTitle: match?.recipe.title,
+      placementType: 'ai_chef',
+    });
+    showToast(`${product.productName} TarifAL Sepet'e eklendi.`, 'success');
+  };
+
   const openSmartBasket = (match?: RecipeMatch, pantryItems?: string[]) => {
     navigation.navigate('SmartBasket', {
       recipeId: match?.recipe.id,
@@ -287,7 +421,7 @@ export function AiChefChatScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen scroll contentStyle={styles.content}>
+    <Screen scroll scrollRef={scrollRef} contentStyle={styles.content}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.86} style={styles.backButton}>
           <Ionicons name="chevron-back" size={23} color={theme.colors.text} />
@@ -298,10 +432,27 @@ export function AiChefChatScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
+      {showTestingTools ? (
+        <View style={styles.feedbackWrap}>
+          <FeedbackPromptButton screenName="AiChefChat" compact />
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <View style={styles.heroGlow} />
-        <View style={styles.aiAvatar}>
-          <Ionicons name="sparkles" size={24} color={theme.colors.primary} />
+        <View style={styles.heroGlowSmall} />
+        <View style={styles.heroHeader}>
+          <View style={styles.aiAvatar}>
+            <Ionicons name="sparkles" size={24} color={theme.colors.primary} />
+          </View>
+          <View style={styles.heroIdentity}>
+            <Text style={styles.heroKicker}>TarifAL AI Şef</Text>
+            <Text style={styles.heroStatus}>Tarif, sepet ve plan asistanı</Text>
+          </View>
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.livePillText}>Hazır</Text>
+          </View>
         </View>
         <Text style={styles.heroTitle}>Kişisel mutfak asistanın hazır</Text>
         <Text style={styles.heroText}>
@@ -310,33 +461,66 @@ export function AiChefChatScreen({ navigation }: Props) {
         <View style={styles.heroStats}>
           <MiniStat value="3" label="Akıllı öneri" />
           <MiniStat value="Tek tık" label="Sepete aktar" />
-          <MiniStat value="Mock" label="AI demo" />
+          <MiniStat value="Analiz" label="Karar desteği" />
         </View>
       </View>
 
       <View style={styles.quickPromptBlock}>
-        <Text style={styles.sectionTitle}>Hazır sorular</Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionCopy}>
+            <Text style={styles.sectionTitle}>Hazır başlangıçlar</Text>
+            <Text style={styles.sectionSubtitle}>Bir soruya dokun, AI Şef cevaba otomatik götürsün.</Text>
+          </View>
+          <View style={styles.promptCounter}>
+            <Text style={styles.promptCounterText}>
+              {demoAiChefPrompts.length + socialBotSuggestions.length} fikir
+            </Text>
+          </View>
+        </View>
         <View style={styles.quickPromptList}>
-          {demoAiChefPrompts.map((prompt) => (
+          {demoAiChefPrompts.map((prompt, index) => (
             <TouchableOpacity
               key={prompt}
               onPress={() => sendPrompt(prompt)}
               activeOpacity={0.86}
-              style={styles.quickPrompt}
+              style={[styles.quickPrompt, activePrompt === prompt && styles.quickPromptActive]}
             >
+              <View style={styles.quickPromptIcon}>
+                <Ionicons name={getPromptIcon(prompt, index)} size={17} color={theme.colors.primary} />
+              </View>
               <Text style={styles.quickPromptText}>{prompt}</Text>
+              <Ionicons name="chevron-down-circle-outline" size={20} color={theme.colors.subtle} />
             </TouchableOpacity>
           ))}
-          {socialBotSuggestions.map((suggestion) => (
+          {socialBotSuggestions.map((suggestion, index) => (
             <TouchableOpacity
               key={suggestion.prompt}
               onPress={() => sendPrompt(suggestion.prompt)}
               activeOpacity={0.86}
-              style={styles.quickPrompt}
+              style={[styles.quickPrompt, activePrompt === suggestion.prompt && styles.quickPromptActive]}
             >
+              <View style={styles.quickPromptIcon}>
+                <Ionicons
+                  name={getPromptIcon(suggestion.prompt, demoAiChefPrompts.length + index)}
+                  size={17}
+                  color={theme.colors.primary}
+                />
+              </View>
               <Text style={styles.quickPromptText}>{suggestion.prompt}</Text>
+              <Ionicons name="chevron-down-circle-outline" size={20} color={theme.colors.subtle} />
             </TouchableOpacity>
           ))}
+        </View>
+      </View>
+
+      <View style={styles.chatHeaderBlock}>
+        <View style={styles.sectionCopy}>
+          <Text style={styles.sectionTitle}>Sohbet</Text>
+          <Text style={styles.sectionSubtitle}>Cevaplar, tarif kartları ve sepet aksiyonları burada görünür.</Text>
+        </View>
+        <View style={styles.chatBadge}>
+          <Ionicons name="chatbubble-ellipses-outline" size={15} color={theme.colors.primary} />
+          <Text style={styles.chatBadgeText}>AI akışı</Text>
         </View>
       </View>
 
@@ -350,6 +534,15 @@ export function AiChefChatScreen({ navigation }: Props) {
           return (
             <View
               key={message.id}
+              onLayout={
+                isLatestResult
+                  ? (event) => {
+                      if (pendingScrollTargetRef.current === 'result') {
+                        scrollToLatestResult(event.nativeEvent.layout.y);
+                      }
+                    }
+                  : undefined
+              }
               style={[
                 styles.messageBubble,
                 message.role === 'user' ? styles.userBubble : styles.assistantBubble,
@@ -372,6 +565,15 @@ export function AiChefChatScreen({ navigation }: Props) {
               <Text style={[styles.messageText, message.role === 'user' && styles.userMessageText]}>
                 {message.text}
               </Text>
+              {message.sponsoredProduct ? (
+                <SponsoredProductCard
+                  compact
+                  product={message.sponsoredProduct}
+                  title="AI Şef'in uygun ürün notu"
+                  subtitle="Tarif ve eksik ürün bağlamına göre gösterildi."
+                  onAddToCart={() => handleSponsoredProductAdd(message.sponsoredProduct!, message.matches?.[0])}
+                />
+              ) : null}
               {hasMatches && !showMatches ? (
                 <TouchableOpacity
                   onPress={() =>
@@ -552,6 +754,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  feedbackWrap: {
+    marginTop: -4,
+    marginBottom: 12,
+  },
   backButton: {
     width: 42,
     height: 42,
@@ -581,6 +787,8 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     ...theme.shadow,
     shadowOpacity: 0.08,
   },
@@ -593,6 +801,20 @@ const styles = StyleSheet.create({
     borderRadius: 75,
     backgroundColor: 'rgba(255, 90, 0, 0.18)',
   },
+  heroGlowSmall: {
+    position: 'absolute',
+    left: -48,
+    bottom: -50,
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   aiAvatar: {
     width: 54,
     height: 54,
@@ -600,6 +822,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroIdentity: {
+    flex: 1,
+  },
+  heroKicker: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  heroStatus: {
+    marginTop: 3,
+    color: '#B8C0CF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  livePill: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: theme.colors.success,
+  },
+  livePillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
   },
   heroTitle: {
     color: '#FFFFFF',
@@ -639,31 +895,103 @@ const styles = StyleSheet.create({
   quickPromptBlock: {
     marginTop: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionCopy: {
+    flex: 1,
+  },
   sectionTitle: {
     color: theme.colors.text,
     fontSize: 17,
     fontWeight: '900',
   },
+  sectionSubtitle: {
+    marginTop: 4,
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  promptCounter: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  promptCounterText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   quickPromptList: {
-    marginTop: 10,
-    gap: 8,
+    marginTop: 12,
+    gap: 9,
   },
   quickPrompt: {
-    minHeight: 44,
-    borderRadius: 18,
+    minHeight: 56,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...theme.shadow,
+    shadowOpacity: 0.025,
+  },
+  quickPromptActive: {
+    borderColor: '#FFD2BD',
+    backgroundColor: '#FFF8F4',
+  },
+  quickPromptIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.primarySoft,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   quickPromptText: {
+    flex: 1,
     color: theme.colors.text,
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '800',
   },
+  chatHeaderBlock: {
+    marginTop: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  chatBadge: {
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chatBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   messages: {
-    marginTop: 16,
+    marginTop: 12,
     gap: 12,
   },
   messageBubble: {
